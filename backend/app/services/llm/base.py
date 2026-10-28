@@ -3,6 +3,7 @@
 import hashlib
 import math
 import re
+from dataclasses import dataclass
 from typing import Protocol
 
 
@@ -16,10 +17,17 @@ class Embedder(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
+@dataclass(frozen=True)
+class Generation:
+    text: str
+    prompt_tokens: int | None = None  # None when the provider doesn't report it
+    completion_tokens: int | None = None
+
+
 class ChatModel(Protocol):
     model: str
 
-    def generate(self, system: str, prompt: str) -> str: ...
+    def generate(self, system: str, prompt: str) -> Generation: ...
 
 
 class FakeEmbedder:
@@ -49,8 +57,10 @@ class FakeChat:
 
     model = "fake-chat"
 
-    def generate(self, system: str, prompt: str) -> str:
+    def generate(self, system: str, prompt: str) -> Generation:
         m = re.search(
             r"^\[1\][^\n]*\n(.+?)(?:\n\n\[\d+\]|\n</context>)", prompt, re.M | re.S
         )
-        return f"[1] {m.group(1)[:200]}" if m else "I don't know."
+        text = f"[1] {m.group(1)[:200]}" if m else "I don't know."
+        # Word counts stand in for tokens, so the usage path is exercised in tests.
+        return Generation(text, len(prompt.split()), len(text.split()))

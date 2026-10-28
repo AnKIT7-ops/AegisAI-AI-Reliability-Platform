@@ -1,20 +1,40 @@
 """AegisAI API entry point."""
 
+import logging
 import os
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 
 import psycopg
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-from app.api import chat, documents, models
+from app.api import chat, documents, evaluations, models
+from app.api.deps import get_sessionmaker
 from app.core.config import get_settings
 from app.core.errors import error_response, install_error_handlers
+from app.services.evaluation.jobs import mark_interrupted
 
 DB_CONNECT_TIMEOUT_S = int(os.environ.get("DB_CONNECT_TIMEOUT_S", "2"))
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
-app = FastAPI(title="AegisAI")
+log = logging.getLogger("aegis")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # A run that was active when the last process stopped can never finish.
+    if os.environ.get("DATABASE_URL"):
+        try:
+            with get_sessionmaker()() as session:
+                if n := mark_interrupted(session):
+                    log.warning("marked %d interrupted evaluation run(s) failed", n)
+        except Exception:
+            log.warning("could not check for interrupted evaluation runs")
+    yield
+
+
+app = FastAPI(title="AegisAI", lifespan=lifespan)
 install_error_handlers(app)
 
 
@@ -43,6 +63,7 @@ async def request_guards(
 app.include_router(documents.router)
 app.include_router(models.router)
 app.include_router(chat.router)
+app.include_router(evaluations.router)
 
 
 @app.get("/health/live")

@@ -6,6 +6,7 @@ def test_unknown_path_and_wrong_method_use_the_error_shape(client: TestClient) -
     assert (r.status_code, r.json()["error"]["code"]) == (404, "not_found")
     r = client.get("/api/v1/chat")
     assert (r.status_code, r.json()["error"]["code"]) == (405, "method_not_allowed")
+    assert r.headers["allow"] == "POST"
 
 
 def test_other_http_exceptions_use_generic_code() -> None:

@@ -3,7 +3,12 @@
 import threading
 from functools import lru_cache
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.core.config import get_settings
+from app.core.errors import ApiError
+from app.db.session import connect_args, database_url
 from app.services.llm.base import ChatModel, Embedder, FakeChat, FakeEmbedder
 from app.services.llm.ollama import OllamaChat, OllamaClient, OllamaEmbedder
 from app.services.rag.store import VectorStore
@@ -42,3 +47,19 @@ def get_store() -> VectorStore:
         if _store is None:
             _store = VectorStore(get_settings().index_dir, get_embedder().model)
         return _store
+
+
+@lru_cache
+def _sessionmaker() -> sessionmaker[Session]:
+    url = database_url()
+    engine = create_engine(url, pool_pre_ping=True, connect_args=connect_args(url))
+    return sessionmaker(engine, expire_on_commit=False)
+
+
+def get_sessionmaker() -> sessionmaker[Session]:
+    try:
+        return _sessionmaker()
+    except RuntimeError:  # DATABASE_URL not set
+        raise ApiError(
+            503, "database_unavailable", "database is not configured"
+        ) from None

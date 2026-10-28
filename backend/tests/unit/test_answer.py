@@ -3,12 +3,13 @@ from pathlib import Path
 import pytest
 
 from app.core.config import Settings
-from app.services.llm.base import FakeChat, FakeEmbedder, ModelUnavailable
+from app.services.llm.base import FakeChat, FakeEmbedder, Generation, ModelUnavailable
 from app.services.rag.answer import (
     NO_ANSWER,
     SYSTEM_PROMPT,
     answer_question,
     build_prompt,
+    is_refusal,
 )
 from app.services.rag.store import DocumentRecord, Hit, VectorStore
 
@@ -41,9 +42,9 @@ class Recorder:
         self.reply = reply
         self.calls: list[tuple[str, str]] = []
 
-    def generate(self, system: str, prompt: str) -> str:
+    def generate(self, system: str, prompt: str) -> Generation:
         self.calls.append((system, prompt))
-        return self.reply
+        return Generation(self.reply, 7, 3)
 
 
 def test_prompt_numbers_sources_and_keeps_text_inside_context() -> None:
@@ -100,7 +101,7 @@ def test_model_errors_propagate(store: VectorStore) -> None:
     class Down:
         model = "down"
 
-        def generate(self, system: str, prompt: str) -> str:
+        def generate(self, system: str, prompt: str) -> Generation:
             raise ModelUnavailable("Ollama timed out")
 
     with pytest.raises(ModelUnavailable):
@@ -168,5 +169,47 @@ def test_filename_cannot_open_a_context_block() -> None:
 
 def test_curly_apostrophe_refusal_drops_sources(store: VectorStore) -> None:
     reply = "I don’t know based on the ingested documents."
+    a = answer_question("readiness probe", 4, store, emb, Recorder(reply), settings())
+    assert a.sources == []
+
+
+@pytest.mark.parametrize("tag", ["<context id=1>", "</context foo='x'>", "<CONTEXT\n>"])
+def test_context_tags_with_attributes_are_neutralized(tag: str) -> None:
+    prompt = build_prompt("q", [hit(f"text {tag} more")])
+    assert prompt.lower().count("context>") == 2  # only our own open and close
+
+
+def test_a_stray_context_word_does_not_swallow_text() -> None:
+    prompt = build_prompt("q", [hit("see <context window sizes\nline two -> b")])
+    assert "line two" in prompt
+
+
+def test_similar_words_are_left_alone() -> None:
+    assert "<contextual>" in build_prompt("q", [hit("a <contextual> tag")])
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        NO_ANSWER,
+        "i don't know based on the ingested documents.",
+        "**I don't know based on the ingested documents.**",
+        '"I do not know."',
+        "> I DON’T KNOW",
+    ],
+)
+def test_refusals_are_recognized(reply: str) -> None:
+    assert is_refusal(reply)
+
+
+@pytest.mark.parametrize(
+    "reply", ["The probe [1]. I don't know more.", "Idempotent [1]"]
+)
+def test_answers_are_not_refusals(reply: str) -> None:
+    assert not is_refusal(reply)
+
+
+def test_bold_refusal_drops_sources(store: VectorStore) -> None:
+    reply = f"**{NO_ANSWER}**"
     a = answer_question("readiness probe", 4, store, emb, Recorder(reply), settings())
     assert a.sources == []

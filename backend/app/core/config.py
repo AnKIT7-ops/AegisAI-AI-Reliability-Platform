@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # nomic-embed-text on the sample corpus (in-scope >= 0.75, off-topic <= 0.65).
     min_score: float = Field(default=0.70, ge=-1, le=1)
 
+    # Evaluation. The dataset directory defaults to the repo's data/evaluation;
+    # run artifacts (JSON, CSV, Markdown) are written under eval_runs_dir/<run id>/.
+    eval_dir: Path = Path(__file__).resolve().parents[3] / "data" / "evaluation"
+    eval_runs_dir: Path = Path("data/runs")
+
     # Request guards. Host stops DNS rebinding; Origin stops other sites' pages
     # from sending state-changing requests. Lists are JSON in the environment.
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "backend"]

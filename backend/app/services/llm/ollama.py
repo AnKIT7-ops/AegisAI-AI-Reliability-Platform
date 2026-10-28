@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from app.services.llm.base import ModelUnavailable
+from app.services.llm.base import Generation, ModelUnavailable
 
 EMBED_BATCH = 32
 
@@ -105,7 +105,7 @@ class OllamaChat:
         self.client = client
         self.model = model
 
-    def generate(self, system: str, prompt: str) -> str:
+    def generate(self, system: str, prompt: str) -> Generation:
         data = self.client.request(
             "POST",
             "/api/chat",
@@ -125,4 +125,13 @@ class OllamaChat:
         content = message.get("content") if isinstance(message, dict) else None
         if not isinstance(content, str):
             raise ModelUnavailable("Ollama returned an unexpected response")
-        return content.strip()
+        return Generation(
+            content.strip(),
+            _count(data.get("prompt_eval_count")),
+            _count(data.get("eval_count")),
+        )
+
+
+def _count(value: object) -> int | None:
+    # Token counts are informational: anything odd becomes "unknown", not an error.
+    return value if isinstance(value, int) and not isinstance(value, bool) else None

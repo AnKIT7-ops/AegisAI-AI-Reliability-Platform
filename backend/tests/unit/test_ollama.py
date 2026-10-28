@@ -33,7 +33,7 @@ def test_chat_sends_non_streaming_no_think_request() -> None:
         seen.update(path=req.url.path, body=json.loads(req.content))
         return httpx.Response(200, json={"message": {"content": "  answer [1] "}})
 
-    assert OllamaChat(client(handler), "qwen").generate("sys", "q") == "answer [1]"
+    assert OllamaChat(client(handler), "qwen").generate("sys", "q").text == "answer [1]"
     body = seen["body"]
     assert seen["path"] == "/api/chat"
     assert isinstance(body, dict)
@@ -193,3 +193,25 @@ def test_non_finite_embeddings_rejected(bad: str) -> None:
 
     with pytest.raises(ModelUnavailable, match="malformed"):
         OllamaEmbedder(client(handler), "nomic").embed(["a"])
+
+
+def test_chat_reports_token_counts() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = {
+            "message": {"content": " hi [1] "},
+            "prompt_eval_count": 120,
+            "eval_count": 9,
+        }
+        return httpx.Response(200, json=body)
+
+    gen = OllamaChat(client(handler), "qwen").generate("sys", "q")
+    assert (gen.text, gen.prompt_tokens, gen.completion_tokens) == ("hi [1]", 120, 9)
+
+
+@pytest.mark.parametrize("bad", [None, "12", True, 1.5])
+def test_odd_token_counts_become_unknown(bad: object) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = {"message": {"content": "hi"}, "prompt_eval_count": bad}
+        return httpx.Response(200, json=body)
+
+    assert OllamaChat(client(handler), "qwen").generate("s", "q").prompt_tokens is None

@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.api.deps import get_chat_model
 from app.main import app
-from app.services.llm.base import ModelUnavailable
+from app.services.llm.base import Generation, ModelUnavailable
 from app.services.rag.answer import NO_ANSWER
 
 DOC = (
@@ -45,6 +45,7 @@ def test_out_of_scope_question_is_refused(ingested: TestClient) -> None:
         "sources": [],
         "model": None,
         "latency_ms": r.json()["latency_ms"],
+        "usage": None,
     }
 
 
@@ -93,7 +94,7 @@ def test_model_down_is_503(ingested: TestClient) -> None:
     class Down:
         model = "down"
 
-        def generate(self, system: str, prompt: str) -> str:
+        def generate(self, system: str, prompt: str) -> Generation:
             raise ModelUnavailable("Ollama timed out")
 
     app.dependency_overrides[get_chat_model] = Down
