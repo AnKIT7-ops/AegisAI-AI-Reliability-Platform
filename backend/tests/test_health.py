@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app import main
 
-client = TestClient(main.app)
+client = TestClient(main.app, base_url="http://localhost")
 
 
 def test_live() -> None:

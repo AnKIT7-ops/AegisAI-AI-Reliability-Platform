@@ -32,6 +32,16 @@ class Settings(BaseSettings):
     # nomic-embed-text on the sample corpus (in-scope >= 0.75, off-topic <= 0.65).
     min_score: float = Field(default=0.70, ge=-1, le=1)
 
+    # Request guards. Host stops DNS rebinding; Origin stops other sites' pages
+    # from sending state-changing requests. Lists are JSON in the environment.
+    allowed_hosts: list[str] = ["localhost", "127.0.0.1", "backend"]
+    allowed_origins: list[str] = [
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
     @model_validator(mode="after")
     def _overlap_below_size(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:

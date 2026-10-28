@@ -35,5 +35,5 @@ def client(settings: Settings, store: VectorStore) -> Iterator[TestClient]:
     app.dependency_overrides[get_store] = lambda: store
     app.dependency_overrides[get_embedder] = lambda: embedder
     app.dependency_overrides[get_chat_model] = FakeChat
-    yield TestClient(app)
+    yield TestClient(app, base_url="http://localhost")
     app.dependency_overrides.clear()

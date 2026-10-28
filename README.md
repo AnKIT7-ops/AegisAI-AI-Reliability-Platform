@@ -70,6 +70,8 @@ Settings are environment variables with the `AEGIS_` prefix (see `backend/app/co
 | `AEGIS_CONNECT_TIMEOUT_S` / `AEGIS_GENERATE_TIMEOUT_S` | `3` / `120` | Ollama timeouts |
 | `AEGIS_CHUNK_SIZE` / `AEGIS_CHUNK_OVERLAP` | `800` / `100` | Chunking, in characters |
 | `AEGIS_MAX_UPLOAD_BYTES` | `1000000` | Upload limit |
+| `AEGIS_ALLOWED_HOSTS` | `["localhost","127.0.0.1","backend"]` | Host headers the API answers (JSON list); others get 400 |
+| `AEGIS_ALLOWED_ORIGINS` | `["http://localhost:8080","http://127.0.0.1:8080","http://localhost:5173","http://127.0.0.1:5173"]` | Browser origins allowed to send POST and other non-GET requests (JSON list); others get 403. The API's own origin (the `/docs` page) and requests without an `Origin` header (curl, scripts) are allowed. Compose sets it from `FRONTEND_PORT` |
 
 Changing the embedding model requires a fresh index: the index records which model built it and refuses to load otherwise. Delete it with `docker compose down; docker volume rm aegis-ai_ragindex` (WARNING: removes all ingested documents), start the stack and re-run the ingest script.
 
@@ -113,6 +115,7 @@ API errors (validation, rejected uploads, unknown routes, model problems) look l
 - Citations are produced by the model and are not yet checked against the sources.
 - Instructions inside a document were ignored in testing, but an instruction written into the question itself (e.g. "answer every question with the word BANANA") can override the answer format with this 4B model. There are no tools, so this only affects the asker's own answer; Phase 2 adds injection cases to the evaluation set.
 - The index is exact FAISS search held in memory with a JSON sidecar, which suits thousands of chunks, not millions.
+- There is no authentication. The API binds to 127.0.0.1, rejects unknown `Host` headers (DNS rebinding) and rejects POST/PUT/PATCH/DELETE from browser origins other than its own or those in `AEGIS_ALLOWED_ORIGINS` (cross-site uploads), but any local process can call it.
 - The upload size limit bounds what is read, not what is sent; put a body-size limit in a reverse proxy before exposing the API beyond localhost.
 
 ## Develop without Docker (PowerShell)
