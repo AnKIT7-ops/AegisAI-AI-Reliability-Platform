@@ -110,7 +110,7 @@ API errors (validation, rejected uploads, unknown routes, model problems) look l
 ### How answers stay grounded
 
 - Retrieved chunks scoring below `AEGIS_MIN_SCORE` are dropped. If none remain, the API refuses without calling the model.
-- The model sees numbered sources inside a `<context>` block, marked as untrusted text that cannot change its instructions; `<context>` tags in any case or spacing inside documents, file names or questions are neutralized.
+- The model sees numbered sources inside a `<context>` block, marked as untrusted text that cannot change its instructions; `<context>` tags inside documents, file names or questions are neutralized whatever their case, spacing, attributes or line breaks (the opening `<` is replaced).
 - The model is told to cite source numbers and to reply with the fixed "I don't know" sentence when the sources lack the answer; that reply returns no sources.
 
 ### Limitations
@@ -169,7 +169,7 @@ One run executes at a time (`409 evaluation_running` otherwise). A run interrupt
 
 ### Baseline
 
-Measured on 2026-10-28 through the API: qwen3.5:4b and nomic-embed-text on Ollama 0.40.12, RTX 4050 Laptop GPU (6 GB), dataset checksum `7d479629a3cd3993`, prompt version 1. "Degraded" is a deliberately worse configuration (one retrieved chunk, no score cut-off).
+Measured on 2026-10-28 through the API: qwen3.5:4b and nomic-embed-text on Ollama 0.40.12, RTX 4050 Laptop GPU (6 GB), dataset checksum `7d479629a3cd3993`, prompt version 1; a prompt version 2 baseline (tighter `<context>` neutralizing) gave identical quality metrics. "Degraded" is a deliberately worse configuration (one retrieved chunk, no score cut-off).
 
 | Metric | Baseline (top_k 4, min_score 0.70) | Degraded (top_k 1, min_score 0) |
 |---|---|---|
