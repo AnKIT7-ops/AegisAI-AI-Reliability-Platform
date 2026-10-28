@@ -23,6 +23,11 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Ollama runs on the host, bound to 127.0.0.1; Docker Desktop forwards
+      # host.docker.internal to it. Never bind Ollama to 0.0.0.0.
+      AEGIS_OLLAMA_URL: ${AEGIS_OLLAMA_URL:-http://host.docker.internal:11434}
+    volumes:
+      - ragindex:/app/data/index
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -52,3 +57,4 @@ services:
 
 volumes:
   pgdata:
+  ragindex:

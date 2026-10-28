@@ -6,9 +6,16 @@ import psycopg
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.api import chat, documents, models
+from app.core.errors import install_error_handlers
+
 DB_CONNECT_TIMEOUT_S = int(os.environ.get("DB_CONNECT_TIMEOUT_S", "2"))
 
 app = FastAPI(title="AegisAI")
+install_error_handlers(app)
+app.include_router(documents.router)
+app.include_router(models.router)
+app.include_router(chat.router)
 
 
 @app.get("/health/live")

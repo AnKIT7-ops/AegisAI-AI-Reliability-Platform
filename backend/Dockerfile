@@ -7,7 +7,8 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev
 COPY app ./app
 
-RUN useradd --system --uid 10001 aegis
+RUN useradd --system --uid 10001 aegis \
+    && mkdir -p /app/data/index && chown aegis /app/data/index
 USER aegis
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
