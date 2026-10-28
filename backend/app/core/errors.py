@@ -48,6 +48,11 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ModelUnavailable)
     async def model_unavailable(_: Request, exc: ModelUnavailable) -> JSONResponse:
+        log.warning(
+            "model unavailable: %s",
+            exc,
+            extra={"event": "model_error", "error_code": "model_unavailable"},
+        )
         return error_response(503, "model_unavailable", str(exc))
 
     # The detail names server paths, so it goes to the log, not the client.
@@ -76,8 +81,8 @@ def install_error_handlers(app: FastAPI) -> None:
         log.error("database error: %s", type(exc.orig).__name__)
         return error_response(503, "database_unavailable", "database is unavailable")
 
-    # Anything unexpected. Starlette re-raises after responding, so the server log
-    # keeps the traceback; the client gets no internals.
+    # Fallback only: the request_context middleware in main.py answers and logs
+    # unhandled route errors itself; this covers a failure in that middleware.
     @app.exception_handler(Exception)
     async def unexpected(_: Request, exc: Exception) -> JSONResponse:
         return error_response(500, "internal_error", "internal server error")

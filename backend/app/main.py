@@ -2,27 +2,41 @@
 
 import logging
 import os
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 import psycopg
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api import chat, documents, evaluations, models
 from app.api.deps import get_sessionmaker
 from app.core.config import get_settings
 from app.core.errors import error_response, install_error_handlers
+from app.core.logs import configure_logging, new_request_id, request_id
+from app.core.metrics import HTTP_DURATION, HTTP_REQUESTS
 from app.services.evaluation.jobs import mark_interrupted
 
 DB_CONNECT_TIMEOUT_S = int(os.environ.get("DB_CONNECT_TIMEOUT_S", "2"))
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
+# At import, so uvicorn's own startup lines are JSON too.
+configure_logging(get_settings().log_level)
 log = logging.getLogger("aegis")
+access_log = logging.getLogger("aegis.access")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    if settings.fault_delay_ms or settings.fault_error_rate:
+        log.warning(
+            "fault injection is ON: %d ms delay, %.0f%% errors on Ollama calls",
+            settings.fault_delay_ms,
+            settings.fault_error_rate * 100,
+        )
     # A run that was active when the last process stopped can never finish.
     if os.environ.get("DATABASE_URL"):
         try:
@@ -60,10 +74,64 @@ async def request_guards(
     return await call_next(request)
 
 
+# Registered last, so it runs first: even rejected requests get an ID and a log line.
+@app.middleware("http")
+async def request_context(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    rid = new_request_id(request.headers.get("x-request-id"))
+    token = request_id.set(rid)
+    start = time.perf_counter()
+    status = 500
+    try:
+        try:
+            response = await call_next(request)
+        except Exception:
+            # Handled here, not by Starlette's outer error middleware, so the
+            # traceback is logged with the request ID and the 500 carries it.
+            log.exception("unhandled error", extra={"event": "error"})
+            response = error_response(500, "internal_error", "internal server error")
+        status = response.status_code
+        response.headers["X-Request-ID"] = rid
+        return response
+    finally:
+        elapsed = time.perf_counter() - start
+        # The route template (/api/v1/evaluations/{run_id}), never the raw path,
+        # so label values stay bounded; unmatched and rejected requests share one.
+        route = request.scope.get("route")
+        template = str(getattr(route, "path", "unmatched"))
+        HTTP_REQUESTS.labels(request.method, template, str(status)).inc()
+        HTTP_DURATION.labels(request.method, template).observe(elapsed)
+        # The path only: query strings are not logged. Health checks (every 5 s
+        # from the compose healthcheck) and scrapes log at DEBUG.
+        quiet = request.url.path.startswith("/health") or request.url.path == "/metrics"
+        access_log.log(
+            logging.DEBUG if quiet else logging.INFO,
+            "%s %s %d",
+            request.method,
+            request.url.path,
+            status,
+            extra={
+                "event": "request",
+                "method": request.method,
+                "path": request.url.path,
+                "status": status,
+                "duration_ms": round(elapsed * 1000, 1),
+            },
+        )
+        request_id.reset(token)
+
+
 app.include_router(documents.router)
 app.include_router(models.router)
 app.include_router(chat.router)
 app.include_router(evaluations.router)
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    """Prometheus text format; scraped by the prometheus service in compose."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/health/live")

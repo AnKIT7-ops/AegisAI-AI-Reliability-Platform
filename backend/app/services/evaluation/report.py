@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,23 @@ def load_thresholds(eval_dir: Path, dataset_version: str) -> Thresholds | None:
     if not path.is_file():
         return None
     return Thresholds.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def gate_for_run(
+    eval_dir: Path, dataset_version: str, metrics: dict[str, Any], checksum: str
+) -> GateResult | None:
+    """The run's quality gate. None only when no thresholds file exists; an
+    unreadable or invalid file fails the gate rather than skipping it."""
+    try:
+        thresholds = load_thresholds(eval_dir, dataset_version)
+    except (OSError, ValueError):
+        logging.getLogger("aegis").exception(
+            "thresholds for dataset %s are invalid", dataset_version
+        )
+        return GateResult(passed=False, failures=["the thresholds file is invalid"])
+    if thresholds is None:
+        return None
+    return check_gate(metrics, thresholds, checksum)
 
 
 def check_gate(

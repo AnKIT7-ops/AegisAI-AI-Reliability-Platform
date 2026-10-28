@@ -1,0 +1,55 @@
+# Alert rules. Thresholds are set against the measured baseline (README
+# "Evaluation" and "Prometheus metrics"); each alert links to a runbook.
+groups:
+  - name: aegis
+    rules:
+      - alert: AegisBackendDown
+        expr: up{job="aegis-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus cannot scrape the backend.
+          runbook: docs/runbooks/error-rate-spike.md
+
+      - alert: AegisHighErrorRate
+        # 5xx share of API traffic; health checks and scrapes excluded.
+        expr: |
+          sum(rate(aegis_http_requests_total{status=~"5..", route!~"/health.*|/metrics"}[5m]))
+            / sum(rate(aegis_http_requests_total{route!~"/health.*|/metrics"}[5m]))
+            > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: More than 5% of API requests fail with 5xx.
+          runbook: docs/runbooks/error-rate-spike.md
+
+      - alert: AegisModelFailures
+        expr: sum(increase(aegis_model_requests_total{outcome!="ok"}[5m])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} failed model calls in 5 minutes."
+          runbook: docs/runbooks/error-rate-spike.md
+
+      - alert: AegisChatLatencyHigh
+        # The baseline chat p95 is about 2.8 s on the reference GPU.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(aegis_http_request_duration_seconds_bucket{route="/api/v1/chat"}[5m])))
+            > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Chat p95 latency is above 10 s.
+          runbook: docs/runbooks/latency-spike.md
+
+      - alert: AegisEvaluationGateFailed
+        expr: aegis_evaluation_last_gate_passed == 0
+        labels:
+          severity: warning
+        annotations:
+          summary: The most recent evaluation run failed its quality gate.
+          runbook: docs/runbooks/evaluation-gate-failed.md

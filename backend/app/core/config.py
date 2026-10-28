@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     # Model provider. "fake" needs no model and is used by tests and CI.
     llm_provider: Literal["ollama", "fake"] = "ollama"
+    log_level: Literal["debug", "info", "warning", "error"] = "info"
     ollama_url: str = "http://127.0.0.1:11434"
     chat_model: str = "qwen3.5:4b"
     embed_model: str = "nomic-embed-text"
@@ -21,6 +22,10 @@ class Settings(BaseSettings):
     embed_query_prefix: str = "search_query: "
     connect_timeout_s: float = Field(default=3.0, gt=0)
     generate_timeout_s: float = Field(default=120.0, gt=0)
+    # Fault injection for monitoring drills (docs/runbooks). Off at 0: a delay
+    # before every Ollama call, and the share of calls that fail as "injected".
+    fault_delay_ms: int = Field(default=0, ge=0, le=60_000)
+    fault_error_rate: float = Field(default=0.0, ge=0, le=1)
 
     # Ingestion and retrieval.
     index_dir: Path = Path("data/index")

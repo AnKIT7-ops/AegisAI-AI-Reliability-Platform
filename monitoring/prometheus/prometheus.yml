@@ -1,0 +1,13 @@
+# Scrapes the backend's /metrics inside the compose network.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: aegis-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["backend:8000"]

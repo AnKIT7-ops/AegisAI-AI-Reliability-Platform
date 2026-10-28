@@ -10,6 +10,12 @@ from typing import Protocol
 class ModelUnavailable(Exception):
     """The provider can't serve the request: down, timeout, no model, bad reply."""
 
+    # reason: timeout, unreachable, model_missing, http_error, bad_response,
+    # injected (fault injection drills)
+    def __init__(self, message: str, reason: str = "bad_response") -> None:
+        super().__init__(message)
+        self.reason = reason
+
 
 class Embedder(Protocol):
     model: str

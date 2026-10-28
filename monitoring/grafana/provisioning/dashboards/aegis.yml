@@ -1,0 +1,11 @@
+# Dashboards are files in monitoring/grafana/dashboards; edits in the UI are
+# not saved back. Change the JSON file instead.
+apiVersion: 1
+providers:
+  - name: aegis
+    folder: AegisAI
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

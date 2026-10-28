@@ -6,6 +6,7 @@ import time
 from pydantic import BaseModel
 
 from app.core.config import Settings
+from app.core.metrics import RETRIEVAL_DURATION
 from app.services.llm.base import ChatModel, Embedder
 from app.services.rag.store import Hit, VectorStore
 
@@ -80,8 +81,9 @@ def retrieve(
     settings: Settings,
 ) -> list[Hit]:
     """The top_k chunks for the question, best first, before any score cut-off."""
-    query = embedder.embed([settings.embed_query_prefix + question])[0]
-    return store.search(query, top_k)
+    with RETRIEVAL_DURATION.time():
+        query = embedder.embed([settings.embed_query_prefix + question])[0]
+        return store.search(query, top_k)
 
 
 def answer_question(

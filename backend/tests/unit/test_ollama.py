@@ -215,3 +215,55 @@ def test_odd_token_counts_become_unknown(bad: object) -> None:
         return httpx.Response(200, json=body)
 
     assert OllamaChat(client(handler), "qwen").generate("s", "q").prompt_tokens is None
+
+
+def ok_handler(_: httpx.Request) -> httpx.Response:
+    return httpx.Response(200, json={"message": {"content": "hi"}})
+
+
+def faulty(**faults: float) -> OllamaClient:
+    return OllamaClient(
+        "http://ollama",
+        1,
+        1,
+        transport=httpx.MockTransport(ok_handler),
+        **faults,  # type: ignore[arg-type]
+    )
+
+
+def test_faults_are_off_by_default() -> None:
+    client = OllamaClient(
+        "http://ollama", 1, 1, transport=httpx.MockTransport(ok_handler)
+    )
+    for _ in range(20):
+        assert OllamaChat(client, "m").generate("s", "q").text == "hi"
+
+
+def test_injected_errors_fail_with_their_own_reason() -> None:
+    with pytest.raises(ModelUnavailable) as exc:
+        OllamaChat(faulty(fault_error_rate=1.0), "m").generate("s", "q")
+    assert exc.value.reason == "injected"
+
+
+def test_injected_delay_slows_every_call() -> None:
+    import time
+
+    start = time.perf_counter()
+    OllamaChat(faulty(fault_delay_ms=150), "m").generate("s", "q")
+    assert time.perf_counter() - start >= 0.15
+
+
+def test_partial_error_rate_fails_some_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    import random
+
+    rolls = iter([0.1, 0.9, 0.2, 0.8])
+    monkeypatch.setattr(random, "random", lambda: next(rolls))
+    chat = OllamaChat(faulty(fault_error_rate=0.5), "m")
+    outcomes = []
+    for _ in range(4):
+        try:
+            chat.generate("s", "q")
+            outcomes.append("ok")
+        except ModelUnavailable:
+            outcomes.append("fail")
+    assert outcomes == ["fail", "ok", "fail", "ok"]

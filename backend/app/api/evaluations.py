@@ -24,8 +24,7 @@ from app.services.evaluation.jobs import (
 )
 from app.services.evaluation.report import (
     GateResult,
-    check_gate,
-    load_thresholds,
+    gate_for_run,
     markdown_report,
     results_csv,
 )
@@ -64,14 +63,9 @@ def _get_run(session: Session, run_id: uuid.UUID) -> EvaluationRun:
 def _gate(run: EvaluationRun, settings: Settings) -> GateResult | None:
     if run.status != "done":
         return None
-    try:
-        thresholds = load_thresholds(settings.eval_dir, run.dataset_version)
-    except ValueError:
-        log.exception("thresholds for dataset %s are invalid", run.dataset_version)
-        return GateResult(passed=False, failures=["the thresholds file is invalid"])
-    if thresholds is None:
-        return None
-    return check_gate(run.metrics or {}, thresholds, run.dataset_checksum)
+    return gate_for_run(
+        settings.eval_dir, run.dataset_version, run.metrics or {}, run.dataset_checksum
+    )
 
 
 @router.post("/run", status_code=202)

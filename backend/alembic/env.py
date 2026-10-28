@@ -1,15 +1,14 @@
 """Alembic environment: online migrations against DATABASE_URL."""
 
-from logging.config import fileConfig
-
 from sqlalchemy import create_engine
 
 from alembic import context
+from app.core.logs import configure_logging
 from app.db.models import Base
 from app.db.session import connect_args, database_url
 
-if context.config.config_file_name:
-    fileConfig(context.config.config_file_name, disable_existing_loggers=False)
+# Same JSON lines as the server, so container stdout is uniform.
+configure_logging("info")
 
 # The backend starts only after this finishes, so it must fail fast.
 url = database_url()

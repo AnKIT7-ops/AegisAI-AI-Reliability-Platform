@@ -1,5 +1,6 @@
 """Document ingestion and listing."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, UploadFile
@@ -8,11 +9,13 @@ from pydantic import BaseModel
 from app.api.deps import get_embedder, get_store
 from app.core.config import Settings, get_settings
 from app.core.errors import ApiError
+from app.core.metrics import DOCUMENTS_INGESTED
 from app.services.llm.base import Embedder
 from app.services.rag.ingest import ingest_document
 from app.services.rag.store import DocumentRecord, VectorStore
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+log = logging.getLogger("aegis.documents")
 
 
 class IngestResponse(BaseModel):
@@ -43,6 +46,18 @@ def ingest(
         )
     record, created = ingest_document(
         file.filename or "", data, store, embedder, settings
+    )
+    DOCUMENTS_INGESTED.labels("created" if created else "duplicate").inc()
+    # File names and contents stay out of the log.
+    log.info(
+        "document ingested" if created else "document already present",
+        extra={
+            "event": "ingest",
+            "document_id": record.id,
+            "chunks": record.chunks,
+            "size_bytes": record.size_bytes,
+            "new_document": created,
+        },
     )
     if not created:
         response.status_code = 200

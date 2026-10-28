@@ -1,0 +1,110 @@
+# promtool test rules alerts.test.yml (see README "Alerts"). Each case feeds
+# synthetic series and states which alerts must fire.
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: healthy traffic fires nothing
+    interval: 15s
+    input_series:
+      - series: 'aegis_http_requests_total{method="POST",route="/api/v1/chat",status="200"}'
+        values: '0+10x40'
+      - series: 'up{job="aegis-backend"}'
+        values: '1x40'
+      - series: 'aegis_evaluation_last_gate_passed'
+        values: '1x40'
+    alert_rule_test:
+      - {eval_time: 9m, alertname: AegisHighErrorRate, exp_alerts: []}
+      - {eval_time: 9m, alertname: AegisBackendDown, exp_alerts: []}
+      - {eval_time: 9m, alertname: AegisEvaluationGateFailed, exp_alerts: []}
+
+  - name: half of chat requests fail
+    interval: 15s
+    input_series:
+      - series: 'aegis_http_requests_total{method="POST",route="/api/v1/chat",status="200"}'
+        values: '0+5x40'
+      - series: 'aegis_http_requests_total{method="POST",route="/api/v1/chat",status="503"}'
+        values: '0+5x40'
+      - series: 'aegis_http_requests_total{method="GET",route="/health/ready",status="503"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: AegisHighErrorRate
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: More than 5% of API requests fail with 5xx.
+              runbook: docs/runbooks/error-rate-spike.md
+
+  - name: failing health checks alone do not count as API errors
+    interval: 15s
+    input_series:
+      - series: 'aegis_http_requests_total{method="POST",route="/api/v1/chat",status="200"}'
+        values: '0+5x40'
+      - series: 'aegis_http_requests_total{method="GET",route="/health/ready",status="503"}'
+        values: '0+20x40'
+    alert_rule_test:
+      - {eval_time: 9m, alertname: AegisHighErrorRate, exp_alerts: []}
+
+  - name: model calls time out
+    interval: 15s
+    input_series:
+      - series: 'aegis_model_requests_total{operation="chat",outcome="timeout"}'
+        values: '0 1 2 3 4 5 6 7 8 9 10'
+    alert_rule_test:
+      - eval_time: 2m30s
+        alertname: AegisModelFailures
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "10 failed model calls in 5 minutes."
+              runbook: docs/runbooks/error-rate-spike.md
+
+  - name: chat answers take about 20 s
+    interval: 15s
+    input_series:
+      # Every request lands in the (10, 30] s bucket.
+      - series: 'aegis_http_request_duration_seconds_bucket{method="POST",route="/api/v1/chat",le="10.0"}'
+        values: '0x40'
+      - series: 'aegis_http_request_duration_seconds_bucket{method="POST",route="/api/v1/chat",le="30.0"}'
+        values: '0+2x40'
+      - series: 'aegis_http_request_duration_seconds_bucket{method="POST",route="/api/v1/chat",le="+Inf"}'
+        values: '0+2x40'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: AegisChatLatencyHigh
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: Chat p95 latency is above 10 s.
+              runbook: docs/runbooks/latency-spike.md
+
+  - name: an evaluation run fails its gate
+    interval: 15s
+    input_series:
+      - series: 'aegis_evaluation_last_gate_passed'
+        values: '1 1 0 0'
+    alert_rule_test:
+      - eval_time: 45s
+        alertname: AegisEvaluationGateFailed
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: The most recent evaluation run failed its quality gate.
+              runbook: docs/runbooks/evaluation-gate-failed.md
+
+  - name: the backend stops answering scrapes
+    interval: 15s
+    input_series:
+      - series: 'up{job="aegis-backend"}'
+        values: '1 1 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AegisBackendDown
+        exp_alerts:
+          - exp_labels: {severity: critical, job: aegis-backend}
+            exp_annotations:
+              summary: Prometheus cannot scrape the backend.
+              runbook: docs/runbooks/error-rate-spike.md

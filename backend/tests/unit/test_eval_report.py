@@ -188,3 +188,44 @@ def test_markdown_error_cell_is_escaped() -> None:
     bad = result(example_id="e", answer=None, error="bad | cell\nnext", scores={})
     md = markdown_report(RUN, [bad], None)
     assert r"| error: bad \| cell next |" in md
+
+
+def test_unmeasured_metrics_are_dropped_from_the_gauge() -> None:
+    from prometheus_client import REGISTRY
+
+    from app.services.evaluation.jobs import _publish_metrics
+
+    _publish_metrics({"recall_at_k": 0.9})
+    assert (
+        REGISTRY.get_sample_value(
+            "aegis_evaluation_last_metric", {"metric": "recall_at_k"}
+        )
+        == 0.9
+    )
+    _publish_metrics({"recall_at_k": None})
+    assert (
+        REGISTRY.get_sample_value(
+            "aegis_evaluation_last_metric", {"metric": "recall_at_k"}
+        )
+        is None
+    )
+    _publish_metrics({"never_published": None})  # nothing to drop: no error
+
+
+def test_unreadable_thresholds_fail_the_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.services.evaluation import report
+
+    def unreadable(eval_dir: Path, version: str) -> Thresholds | None:
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(report, "load_thresholds", unreadable)
+    gate = report.gate_for_run(tmp_path, "v1", {}, "abc")
+    assert gate == GateResult(passed=False, failures=["the thresholds file is invalid"])
+
+
+def test_no_thresholds_file_means_no_gate(tmp_path: Path) -> None:
+    from app.services.evaluation.report import gate_for_run
+
+    assert gate_for_run(tmp_path, "v1", {}, "abc") is None

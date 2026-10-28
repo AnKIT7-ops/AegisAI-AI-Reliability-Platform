@@ -85,3 +85,23 @@ def test_lifespan_skips_without_database_url(
     monkeypatch.setattr(main, "get_sessionmaker", boom)
     with TestClient(main.app):
         pass
+
+
+@pytest.mark.parametrize(
+    ("fields", "warned"),
+    [({}, False), ({"fault_delay_ms": 500}, True), ({"fault_error_rate": 0.2}, True)],
+)
+def test_startup_warns_only_when_fault_injection_is_on(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    fields: dict[str, float],
+    warned: bool,
+) -> None:
+    from app.core.config import Settings
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr(main, "get_settings", lambda: Settings(**fields))  # type: ignore[arg-type]
+    with caplog.at_level(logging.WARNING, logger="aegis"):
+        with TestClient(main.app):
+            pass
+    assert any("fault injection is ON" in r.message for r in caplog.records) is warned

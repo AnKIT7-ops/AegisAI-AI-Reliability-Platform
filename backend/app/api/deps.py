@@ -17,7 +17,13 @@ from app.services.rag.store import VectorStore
 @lru_cache
 def get_ollama() -> OllamaClient:
     s = get_settings()
-    return OllamaClient(s.ollama_url, s.connect_timeout_s, s.generate_timeout_s)
+    return OllamaClient(
+        s.ollama_url,
+        s.connect_timeout_s,
+        s.generate_timeout_s,
+        fault_delay_ms=s.fault_delay_ms,
+        fault_error_rate=s.fault_error_rate,
+    )
 
 
 @lru_cache
