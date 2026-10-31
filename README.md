@@ -11,8 +11,8 @@ A local-first platform for building, evaluating, observing and operating a RAG a
 | 2 | Evaluation harness: retrieval, answer quality, citation support, latency | Done |
 | 3 | Observability: structured logs, metrics, dashboard, alerts | Done |
 | 4 | CI/CD with AI quality gates | Done |
-| 5 | Incident detection and runbook-driven diagnosis | Next |
-| 6 | Operations dashboard and release workflow | Planned |
+| 5 | Incident detection and runbook-driven diagnosis | Done |
+| 6 | Operations dashboard and release workflow | In progress |
 | 7 | Hardening and benchmarks | Planned |
 
 ## Prerequisites
