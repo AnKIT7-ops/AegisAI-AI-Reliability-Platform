@@ -1,0 +1,9 @@
+{
+  "observed_at": "2026-10-31T12:00:00+00:00",
+  "alerts": [
+    "AegisChatLatencyHigh"
+  ],
+  "chat_p95_s": 14.2,
+  "model_p95_s": 13.1,
+  "retrieval_p95_s": 0.2
+}

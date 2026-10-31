@@ -31,12 +31,17 @@ services:
       # Evaluation datasets come from the repo (read-only); run reports persist.
       AEGIS_EVAL_DIR: /app/data/evaluation
       AEGIS_EVAL_RUNS_DIR: /app/data/runs
+      # Incident detection reads firing alerts and metrics from Prometheus.
+      AEGIS_INCIDENT_DIR: /app/data/incidents
+      AEGIS_PROMETHEUS_URL: http://prometheus:9090
+      AEGIS_PROMETHEUS_PUBLIC_URL: http://127.0.0.1:${PROMETHEUS_PORT:-9090}
       # Monitoring drills only (docs/runbooks); 0 means off.
       AEGIS_FAULT_DELAY_MS: ${AEGIS_FAULT_DELAY_MS:-0}
       AEGIS_FAULT_ERROR_RATE: ${AEGIS_FAULT_ERROR_RATE:-0}
     volumes:
       - ragindex:/app/data/index
       - ./data/evaluation:/app/data/evaluation:ro
+      - ./data/incidents:/app/data/incidents:ro
       - evalruns:/app/data/runs
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"

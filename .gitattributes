@@ -1,3 +1,4 @@
 # Evaluation data is hashed; keep it byte-identical on every platform.
 data/evaluation/*.jsonl text eol=lf
 data/evaluation/*.json text eol=lf
+data/incidents/*.json text eol=lf

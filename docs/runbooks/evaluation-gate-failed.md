@@ -1,6 +1,6 @@
 # Evaluation gate failed
 
-Alert: `AegisEvaluationGateFailed`: the most recent finished evaluation run did not meet the limits in `data/evaluation/v1.thresholds.json`.
+Alert: `AegisEvaluationGateFailed`: the most recent finished evaluation run did not meet the limits in `data/evaluation/v1.thresholds.json`. Incident type: `retrieval_quality_regression`.
 
 ## What you see
 

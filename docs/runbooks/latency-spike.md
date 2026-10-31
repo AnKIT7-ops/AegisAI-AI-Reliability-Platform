@@ -1,6 +1,6 @@
 # Latency spike
 
-Alert: `AegisChatLatencyHigh`: the 95th percentile of `/api/v1/chat` is above 10 s for 2 minutes. The measured baseline p95 is about 2.8 s on an RTX 4050 Laptop GPU (README, *Evaluation*).
+Alert: `AegisChatLatencyHigh`: the 95th percentile of `/api/v1/chat` is above 10 s for 2 minutes. The measured baseline p95 is about 2.8 s on an RTX 4050 Laptop GPU (README, *Evaluation*). Incident type: `increased_latency`.
 
 ## What you see
 

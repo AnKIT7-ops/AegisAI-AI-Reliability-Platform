@@ -51,7 +51,11 @@ def install_error_handlers(app: FastAPI) -> None:
         log.warning(
             "model unavailable: %s",
             exc,
-            extra={"event": "model_error", "error_code": "model_unavailable"},
+            extra={
+                "event": "model_error",
+                "error_code": "model_unavailable",
+                "reason": exc.reason,
+            },
         )
         return error_response(503, "model_unavailable", str(exc))
 
