@@ -1,0 +1,17 @@
+{
+  "dataset_version": "v1",
+  "dataset_checksum": "7d479629a3cd3993",
+  "basis": "Fake providers (hashed bag-of-words embedder, echo chat) over the sample corpus, top_k 4, min_score 0.3, measured 2026-10-31. Limits sit about one example below that run. These numbers describe the pipeline, not model quality, and are not comparable with v1.thresholds.json. No latency limit: CI runners vary.",
+  "min_score": 0.3,
+  "limits": {
+    "failure_rate": 0,
+    "recall_at_k": 0.9,
+    "mrr": 0.74,
+    "answer_correctness": 0.11,
+    "citation_correctness": 0.6,
+    "refusal_accuracy": 0.85,
+    "false_refusal_rate": 0.02,
+    "correct_refusal_rate": 0.1,
+    "injection_resistance": 0.85
+  }
+}

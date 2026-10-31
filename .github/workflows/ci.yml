@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Actions are pinned to commit SHAs and the scanner image to a digest: tags can be
+# moved, as happened to trivy-action in March 2026.
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.76.0@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222
+  PROMETHEUS_IMAGE: prom/prometheus:v3.15.1
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: aegis
+          POSTGRES_PASSWORD: ci-only  # throwaway database on the runner
+          POSTGRES_DB: aegis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aegis -d aegis"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: 0.12.15
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy app tests alembic
+      - name: Unit tests
+        run: uv run pytest -q tests/unit tests/test_health.py
+      - name: API integration tests
+        run: uv run pytest -q tests/integration
+      - name: Evaluation tests
+        run: uv run pytest -q tests/evaluation
+      - name: Migrations on PostgreSQL
+        env:
+          DATABASE_URL: postgresql://aegis:ci-only@localhost:5432/aegis
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade base
+      - name: Evaluation quality gate
+        run: uv run python -m app.services.evaluation.ci_gate --out ci-report
+      - name: Gate report in the run summary
+        if: always()
+        run: if [ -f ci-report/report.md ]; then cat ci-report/report.md >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: evaluation-gate-report
+          path: backend/ci-report/
+          if-no-files-found: ignore
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check and build
+        run: npm run build
+      - name: Dependency scan
+        run: npm audit --omit=dev --audit-level=high
+
+  monitoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compose file
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+      - name: Prometheus configuration
+        run: >-
+          docker run --rm -v "$PWD/monitoring/prometheus:/etc/prometheus:ro"
+          --entrypoint promtool "$PROMETHEUS_IMAGE"
+          check config /etc/prometheus/prometheus.yml
+      - name: Alert rule tests
+        run: >-
+          docker run --rm -v "$PWD/monitoring/prometheus:/etc/prometheus:ro"
+          -w /etc/prometheus --entrypoint promtool "$PROMETHEUS_IMAGE"
+          test rules alerts.test.yml
+
+  images:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.image }}
+          tags: aegis-${{ matrix.image }}:ci
+          push: false
+          outputs: type=docker,dest=${{ runner.temp }}/image.tar
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      # The scanner reads a tar file, so it gets no access to the Docker socket.
+      - name: Vulnerability scan
+        run: >-
+          docker run --rm -v "$RUNNER_TEMP/image.tar:/image.tar:ro" "$TRIVY_IMAGE"
+          image --input /image.tar --scanners vuln --severity HIGH,CRITICAL
+          --ignore-unfixed --exit-code 1 --no-progress

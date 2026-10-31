@@ -27,3 +27,4 @@ Thumbs.db
 # Local RAG index
 **/data/index/
 **/data/runs/
+**/ci-report/
