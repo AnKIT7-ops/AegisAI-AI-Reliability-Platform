@@ -68,7 +68,9 @@ jobs:
           uv run alembic upgrade head
           uv run alembic check
           uv run alembic downgrade base
+      # A gate failure also fails the evaluation tests; run anyway for the report.
       - name: Evaluation quality gate
+        if: ${{ !cancelled() }}
         run: uv run python -m app.services.evaluation.ci_gate --out ci-report
       - name: Gate report in the run summary
         if: always()
