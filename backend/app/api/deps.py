@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.db.session import connect_args, database_url
+from app.services.incidents.signals import Prometheus
 from app.services.llm.base import ChatModel, Embedder, FakeChat, FakeEmbedder
 from app.services.llm.ollama import OllamaChat, OllamaClient, OllamaEmbedder
 from app.services.rag.store import VectorStore
@@ -40,6 +41,11 @@ def get_chat_model() -> ChatModel:
     if s.llm_provider == "fake":
         return FakeChat()
     return OllamaChat(get_ollama(), s.chat_model)
+
+
+@lru_cache
+def get_prometheus() -> Prometheus:
+    return Prometheus(get_settings().prometheus_url)
 
 
 _store: VectorStore | None = None

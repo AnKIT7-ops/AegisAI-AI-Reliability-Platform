@@ -74,6 +74,8 @@ Settings are environment variables with the `AEGIS_` prefix (see `backend/app/co
 | `AEGIS_CHUNK_SIZE` / `AEGIS_CHUNK_OVERLAP` | `800` / `100` | Chunking, in characters |
 | `AEGIS_MAX_UPLOAD_BYTES` | `1000000` | Upload limit |
 | `AEGIS_FAULT_DELAY_MS` / `AEGIS_FAULT_ERROR_RATE` | `0` / `0` | Monitoring drills only: a delay before every Ollama call (0 to 60000 ms) and the share of calls that fail as `injected` (0 to 1). The backend logs a warning at startup while either is set. See [Runbooks](#runbooks) |
+| `AEGIS_PROMETHEUS_URL` | `http://127.0.0.1:9090` (compose: `http://prometheus:9090`) | Where incident detection reads alerts and metrics |
+| `AEGIS_PROMETHEUS_PUBLIC_URL` | `http://127.0.0.1:9090` | Base of the links in incident reports; must open in a browser |
 | `AEGIS_LOG_LEVEL` | `info` | `debug`, `info`, `warning` or `error`; `debug` adds health-check requests |
 | `AEGIS_ALLOWED_HOSTS` | `["localhost","127.0.0.1","backend"]` | Host headers the API answers (JSON list); others get 400 |
 | `AEGIS_ALLOWED_ORIGINS` | `["http://localhost:8080","http://127.0.0.1:8080","http://localhost:5173","http://127.0.0.1:5173"]` | Browser origins allowed to send POST and other non-GET requests (JSON list); others get 403. The API's own origin (the `/docs` page) and requests without an `Origin` header (curl, scripts) are allowed. Compose sets it from `FRONTEND_PORT` |
@@ -109,6 +111,12 @@ with four sources from `prometheus-storage.md` (scores 0.73–0.76). A question 
 | `GET /api/v1/evaluations` | Runs, newest first (`?limit=` up to 200) |
 | `GET /api/v1/evaluations/{id}` | Run configuration, status, metrics, quality gate and every example's result |
 | `GET /api/v1/evaluations/{id}/report` | Markdown report; `?baseline={other id}` adds a comparison, `?format=csv` returns per-example results |
+| `POST /api/v1/incidents/detect` | One detection pass → `{observed_at, persisted, not_checked, incidents[]}`; see [Incidents](#incidents) |
+| `POST /api/v1/incidents/simulate` | `{"scenario": "model_timeout"}` → 201 with the incidents from a file in `data/incidents/` |
+| `GET /api/v1/incidents` | Incidents, most recently seen first (`?status=open` or `resolved`, `?limit=` up to 200) |
+| `GET /api/v1/incidents/{id}` | One incident with its full report |
+| `GET /api/v1/incidents/{id}/report` | Markdown report: observed facts, hypotheses, uncertainty, suggested actions |
+| `POST /api/v1/incidents/{id}/resolve` | Close an incident (`409 incident_resolved` if already closed) |
 
 API errors (validation, rejected uploads, unknown routes, model problems) look like `{"error": {"code": "...", "message": "..."}}`. `503 model_unavailable` means Ollama is down, slow or missing a model.
 
@@ -297,6 +305,57 @@ Each runbook in `docs/runbooks/` covers what the alert means, how to find the ca
 
 Both fault drills were run against this stack. In the error drill all 30 chat requests returned `503 model_unavailable` and the dashboard's 5xx ratio read 0.96; in the latency drill each chat took 12.5 to 13.8 s. The alerts fired in both, and all of them resolved within 5 minutes of turning fault injection off.
 
+## Incidents
+
+`POST /api/v1/incidents/detect` runs one detection pass and returns an evidence-backed report for each problem it finds. Diagnosis is fixed rules, with no model involved, so the same signals always give the same report.
+
+| Incident | Detected from | Severity | Runbook |
+|---|---|---|---|
+| `model_timeout` | `AegisModelFailures` with outcome `timeout` | warning | [model timeout](docs/runbooks/model-timeout.md) |
+| `model_unavailable` | `AegisModelFailures` with any other outcome | critical | [model unavailable](docs/runbooks/model-unavailable.md) |
+| `increased_latency` | `AegisChatLatencyHigh` | warning | [latency spike](docs/runbooks/latency-spike.md) |
+| `elevated_api_error_rate` | `AegisHighErrorRate` | critical | [error-rate spike](docs/runbooks/error-rate-spike.md) |
+| `retrieval_quality_regression` | The latest finished evaluation run failed its gate | warning | [evaluation gate failed](docs/runbooks/evaluation-gate-failed.md) |
+| `unhealthy_dependency` | `SELECT 1` on PostgreSQL fails | critical | [unhealthy dependency](docs/runbooks/unhealthy-dependency.md) |
+
+- **One source of limits.** A firing Prometheus alert is the breach, so thresholds stay in `alerts.yml`. Pending alerts do not count.
+- **Facts and hypotheses are separate.** `facts` are measurements, each naming its source: an alert, a metric query link, a log search by request ID, or an evaluation report. `hypotheses` are inferences with a confidence and a reason. `uncertainty` says what the evidence cannot show.
+- **Unknown stays unknown.** When no rule explains a breach, `hypotheses` is empty and `uncertainty` starts with "Cause unknown".
+- **Correlation.** Failed requests are matched by request ID and to the last 5 minutes. A request that logged a model error and returned 5xx gives a high-confidence link; failures that only share the time window give medium.
+- **What was not checked is stated.** If Prometheus cannot be read, `not_checked` lists `alerts` and `metrics`, so an empty `incidents` list is not read as healthy. If PostgreSQL is down, reports still come back with `persisted: false` and `evaluation_runs` under `not_checked`.
+- **Nothing runs.** `suggested_actions` is fixed text for a person. No code path executes a command or changes the system, and no model output reaches a report.
+
+A repeat of an open incident updates it and adds to `occurrences`. A person closes it with `resolve`; if the problem returns, detection opens a new one.
+
+```powershell
+$d = Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/incidents/detect
+$d.not_checked; $d.incidents | Select-Object type, severity, occurrences
+Invoke-RestMethod "http://127.0.0.1:8000/api/v1/incidents/$($d.incidents[0].id)/report"     # Markdown
+Invoke-RestMethod -Method Post "http://127.0.0.1:8000/api/v1/incidents/$($d.incidents[0].id)/resolve"
+```
+
+### Reproduce an incident
+
+Each runbook has a live drill. To replay a recorded snapshot without breaking anything, name a file from `data/incidents/`; these incidents are stored with `source: "simulated"` and never merge with live ones:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/incidents/simulate `
+  -ContentType 'application/json' -Body '{"scenario": "unexplained_error_rate"}'
+```
+
+Scenarios: `model_timeout`, `model_unavailable`, `increased_latency`, `elevated_api_error_rate`, `retrieval_quality_regression`, `unhealthy_dependency`, and `unexplained_error_rate` (a breach with no explanation, which reports the cause as unknown).
+
+All six incident types were reproduced live against this stack. For example, with `AEGIS_OLLAMA_URL` pointed at a closed port and 33 failed chats, detection reported `model_unavailable` and `elevated_api_error_rate`, named 33 requests by ID, and linked them to the outage with high confidence. A degraded evaluation run reported `top_k 4 -> 1, min_score 0.7 -> 0.0` against the last passing run.
+
+### Limitations
+
+- Detection runs when called; there is no background polling or notification.
+- `AegisBackendDown` cannot produce an incident, because the backend is what runs detection. Prometheus still fires the alert.
+- Alerts look back 5 minutes, so a report can describe a problem that has already recovered. Detection does not probe Ollama, because a failed probe would itself count as a model failure.
+- Failed-request events are kept in memory, the latest 500 per process. After a restart a report has no request IDs and confidence drops to medium.
+- Latency hypotheses compare percentiles of separate histograms, which is an approximation. Retrieval p95 reads at most 5 s, the top histogram bucket.
+- Comparing evaluation runs covers recorded settings only. A changed document index does not show up.
+
 ## CI/CD
 
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. It needs no secrets, paid services or model downloads, and it pushes nothing: images are built and scanned, then discarded.
@@ -384,9 +443,9 @@ docker compose down -v     # WARNING: also deletes the pgdata, ragindex, evalrun
 
 ```text
 .github/    CI workflow
-backend/    FastAPI app (app/: api, core, db, services/llm, services/rag, services/evaluation), alembic/ migrations, tests (unit/, integration/, evaluation/), uv project
+backend/    FastAPI app (app/: api, core, db, services/llm, services/rag, services/evaluation, services/incidents), alembic/ migrations, tests (unit/, integration/, evaluation/), uv project
 frontend/   React + TypeScript + Vite
-data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds
+data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios
 monitoring/ Prometheus configuration and alert rules, Grafana provisioning and dashboard
 docs/       runbooks/ for each alert
 scripts/    PowerShell helpers

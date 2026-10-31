@@ -5,6 +5,7 @@ import logging
 import re
 import sys
 import uuid
+from collections import deque
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
@@ -56,6 +57,7 @@ EXTRA_FIELDS = (
     "dataset",
     "examples",
     "errors",
+    "reason",
 )
 
 
@@ -94,9 +96,50 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, default=str)
 
 
+class RecentFailures(logging.Handler):
+    """Failure events kept for incident reports: IDs and outcomes, never messages.
+
+    ponytail: in memory, so lost on restart and per process. A log store would
+    keep them, at the cost of running one.
+    """
+
+    def __init__(self, capacity: int = 500) -> None:
+        super().__init__()
+        self.events: deque[dict[str, Any]] = deque(maxlen=capacity)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        event = getattr(record, "event", None)
+        status = getattr(record, "status", None)
+        failed_request = event == "request" and isinstance(status, int) and status > 499
+        if event in ("model_error", "error") or failed_request:
+            self.events.append(
+                {
+                    "ts": datetime.fromtimestamp(record.created, UTC),
+                    "request_id": request_id.get(),
+                    "event": event,
+                    "status": status,
+                    "reason": getattr(record, "reason", None),
+                }
+            )
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        # handle() holds this lock around emit(); copying a deque that another
+        # thread appends to can raise RuntimeError.
+        self.acquire()
+        try:
+            return list(self.events)
+        finally:
+            self.release()
+
+
+RECENT_FAILURES = RecentFailures()
+
+
 def configure_logging(level: str) -> None:
     """Send app and uvicorn logs to stdout as JSON lines."""
     root = logging.getLogger()
+    if RECENT_FAILURES not in root.handlers:
+        root.addHandler(RECENT_FAILURES)
     # Added once and alongside existing handlers (test log capture, for one).
     if not any(isinstance(h.formatter, JsonFormatter) for h in root.handlers):
         handler = logging.StreamHandler(sys.stdout)

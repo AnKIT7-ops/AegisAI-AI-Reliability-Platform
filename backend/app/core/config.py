@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     eval_dir: Path = Path(__file__).resolve().parents[3] / "data" / "evaluation"
     eval_runs_dir: Path = Path("data/runs")
 
+    # Incidents. prometheus_url is what the backend queries; the public URL goes
+    # into report links, so it must open in a browser. Scenarios are fixtures.
+    prometheus_url: str = "http://127.0.0.1:9090"
+    prometheus_public_url: str = "http://127.0.0.1:9090"
+    incident_dir: Path = Path(__file__).resolve().parents[3] / "data" / "incidents"
+
     # Request guards. Host stops DNS rebinding; Origin stops other sites' pages
     # from sending state-changing requests. Lists are JSON in the environment.
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "backend"]

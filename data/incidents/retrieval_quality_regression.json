@@ -1,0 +1,25 @@
+{
+  "observed_at": "2026-10-31T12:00:00+00:00",
+  "failed_run": {
+    "chat_model": "qwen3.5:4b",
+    "embed_model": "nomic-embed-text",
+    "prompt_version": "2",
+    "dataset_checksum": "7d479629a3cd3993",
+    "id": "00000000-0000-4000-8000-00000000000b",
+    "top_k": 1,
+    "min_score": 0.0,
+    "gate_failures": [
+      "recall_at_k: 0.9412 < 0.95",
+      "answer_correctness: 0.6078 < 0.75"
+    ]
+  },
+  "passing_run": {
+    "chat_model": "qwen3.5:4b",
+    "embed_model": "nomic-embed-text",
+    "prompt_version": "2",
+    "dataset_checksum": "7d479629a3cd3993",
+    "id": "00000000-0000-4000-8000-00000000000a",
+    "top_k": 4,
+    "min_score": 0.7
+  }
+}
