@@ -10,8 +10,8 @@ A local-first platform for building, evaluating, observing and operating a RAG a
 | 1 | RAG: ingestion, chunking, FAISS retrieval, Ollama provider, cited answers | Done |
 | 2 | Evaluation harness: retrieval, answer quality, citation support, latency | Done |
 | 3 | Observability: structured logs, metrics, dashboard, alerts | Done |
-| 4 | CI/CD with AI quality gates | In progress |
-| 5 | Incident detection and runbook-driven diagnosis | Planned |
+| 4 | CI/CD with AI quality gates | Done |
+| 5 | Incident detection and runbook-driven diagnosis | Next |
 | 6 | Operations dashboard and release workflow | Planned |
 | 7 | Hardening and benchmarks | Planned |
 
@@ -316,6 +316,8 @@ Both fault drills were run against this stack. In the error drill all 30 chat re
 
 uv, npm and Docker layer caches are keyed on their lockfiles and Dockerfiles. Actions are pinned to commit SHAs and the Trivy image to a digest, because tags can be moved. The workflow token is read-only.
 
+`main` requires all five checks (`backend`, `frontend`, `monitoring`, `images (backend)`, `images (frontend)`) to pass, for administrators too, so changes land through pull requests.
+
 ### Evaluation gate in CI
 
 CI has no GPU and downloads no model, so the gate runs the full `v1` dataset over the sample corpus with the fake providers: a hashed bag-of-words embedder and a chat model that echoes the top source. Limits are in `data/evaluation/v1.ci-gate.json`, about one example below the measured run.
@@ -333,6 +335,8 @@ CI has no GPU and downloads no model, so the gate runs the full `v1` dataset ove
 | `failure_rate` | 0 | ≤ 0 |
 
 These numbers describe the pipeline, not the model, and are not comparable with the [baseline](#baseline). The gate catches changes to chunking, retrieval, the default `top_k`, refusals, citation handling and the dataset; editing the dataset fails the gate until the limits are measured again. It cannot catch worse model answers, a changed prompt's effect on a real model, or a changed `AEGIS_MIN_SCORE` default, because the fake embedder needs its own cut-off. Those need the live evaluation in [Run an evaluation](#run-an-evaluation-powershell).
+
+A check of the gate on a pull request that lowered the default `top_k` from 4 to 1: every unit and API integration test still passed, the gate failed with `recall_at_k` 0.67 < 0.90 and `mrr` 0.67 < 0.74, and GitHub blocked the merge ([run](https://github.com/AnKIT7-ops/AegisAI-AI-Reliability-Platform/actions/runs/41184628189)).
 
 Run it locally (PowerShell):
 
