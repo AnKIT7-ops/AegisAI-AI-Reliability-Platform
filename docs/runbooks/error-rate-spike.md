@@ -9,7 +9,7 @@ Alerts: `AegisHighErrorRate` (more than 5% of API requests return 5xx for 2 minu
 
 ## Find the cause
 
-1. Which outcome? In Prometheus (http://127.0.0.1:9090) or Grafana:
+1. Which outcome? In Prometheus (http://localhost:8080/prometheus) or Grafana:
 
    ```promql
    sum by (operation, outcome) (increase(aegis_model_requests_total{outcome!="ok"}[15m]))
@@ -43,14 +43,14 @@ $env:AEGIS_FAULT_ERROR_RATE = "1"          # every model call fails
 docker compose up -d --wait backend
 1..30 | ForEach-Object {
   try {
-    Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/chat -ContentType 'application/json' `
+    Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/chat -ContentType 'application/json' `
       -Body '{"question": "How long does Prometheus keep data by default?"}' | Out-Null
   } catch { }                              # the 503s are the point
   Start-Sleep 5
 }
 ```
 
-Expected: within a minute **Failed model calls** passes 3 and `AegisModelFailures` fires; after about 2 more minutes `AegisHighErrorRate` fires (http://127.0.0.1:9090/alerts). Responses are `503 model_unavailable` with the message `injected fault (AEGIS_FAULT_ERROR_RATE)`.
+Expected: within a minute **Failed model calls** passes 3 and `AegisModelFailures` fires; after about 2 more minutes `AegisHighErrorRate` fires (http://localhost:8080/prometheus/alerts). Responses are `503 model_unavailable` with the message `injected fault (AEGIS_FAULT_ERROR_RATE)`.
 
 ## Clean up
 

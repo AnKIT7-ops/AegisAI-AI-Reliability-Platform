@@ -12,7 +12,9 @@ def test_foreign_host_is_rejected(client: TestClient) -> None:
     assert (r.status_code, r.json()["error"]["code"]) == (400, "invalid_host")
 
 
-@pytest.mark.parametrize("host", ["localhost", "127.0.0.1:8000", "backend:8000"])
+@pytest.mark.parametrize(
+    "host", ["localhost", "127.0.0.1:8000", "127.0.0.1:8080", "backend:8000"]
+)
 def test_local_hosts_are_allowed(client: TestClient, host: str) -> None:
     r = client.get("/health/live", headers={"host": host})
     assert r.status_code == 200

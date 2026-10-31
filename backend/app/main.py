@@ -11,7 +11,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from app.api import chat, documents, evaluations, incidents, models
+from app.api import auth, chat, documents, evaluations, incidents, models
+from app.api.auth import auth_denial
 from app.api.deps import get_sessionmaker
 from app.core.config import get_settings
 from app.core.errors import error_response, install_error_handlers
@@ -71,6 +72,8 @@ async def request_guards(
         and origin != f"{request.url.scheme}://{host}"
     ):
         return error_response(403, "forbidden_origin", "Origin not allowed")
+    if settings.auth_password_hash and (denied := auth_denial(request)):
+        return denied
     return await call_next(request)
 
 
@@ -122,6 +125,7 @@ async def request_context(
         request_id.reset(token)
 
 
+app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(models.router)
 app.include_router(chat.router)
