@@ -1,4 +1,4 @@
-﻿"""Application settings, read from AEGIS_* environment variables."""
+"""Application settings, read from AEGIS_* environment variables."""
 
 from functools import lru_cache
 from pathlib import Path
