@@ -1,6 +1,6 @@
 # Error-rate spike
 
-Alerts: `AegisHighErrorRate` (more than 5% of API requests return 5xx for 2 minutes), `AegisModelFailures` (3 or more failed Ollama calls in 5 minutes), `AegisBackendDown` (Prometheus cannot scrape the backend for 1 minute).
+Alerts: `AegisHighErrorRate` (more than 5% of API requests return 5xx for 2 minutes), `AegisModelFailures` (3 or more failed Ollama calls in 5 minutes), `AegisBackendDown` (Prometheus cannot scrape the backend for 1 minute). Incident type: `elevated_api_error_rate`.
 
 ## What you see
 

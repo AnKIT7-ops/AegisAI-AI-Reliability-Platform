@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from app.api import chat, documents, evaluations, models
+from app.api import chat, documents, evaluations, incidents, models
 from app.api.deps import get_sessionmaker
 from app.core.config import get_settings
 from app.core.errors import error_response, install_error_handlers
@@ -126,6 +126,7 @@ app.include_router(documents.router)
 app.include_router(models.router)
 app.include_router(chat.router)
 app.include_router(evaluations.router)
+app.include_router(incidents.router)
 
 
 @app.get("/metrics", include_in_schema=False)

@@ -1,0 +1,37 @@
+{
+  "observed_at": "2026-10-31T12:00:00+00:00",
+  "alerts": [
+    "AegisHighErrorRate",
+    "AegisModelFailures"
+  ],
+  "error_ratio": 0.74,
+  "model_failures": {
+    "http_error": 12
+  },
+  "log_events": [
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-errors-1",
+      "event": "model_error",
+      "reason": "http_error"
+    },
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-errors-1",
+      "event": "request",
+      "status": 503
+    },
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-errors-2",
+      "event": "model_error",
+      "reason": "http_error"
+    },
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-errors-2",
+      "event": "request",
+      "status": 503
+    }
+  ]
+}

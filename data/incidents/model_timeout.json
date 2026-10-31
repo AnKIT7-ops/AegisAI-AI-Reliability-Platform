@@ -1,0 +1,35 @@
+{
+  "observed_at": "2026-10-31T12:00:00+00:00",
+  "alerts": [
+    "AegisModelFailures"
+  ],
+  "model_failures": {
+    "timeout": 4
+  },
+  "log_events": [
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-timeout-1",
+      "event": "model_error",
+      "reason": "timeout"
+    },
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-timeout-1",
+      "event": "request",
+      "status": 503
+    },
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-timeout-2",
+      "event": "model_error",
+      "reason": "timeout"
+    },
+    {
+      "ts": "2026-10-31T11:58:30+00:00",
+      "request_id": "drill-timeout-2",
+      "event": "request",
+      "status": 503
+    }
+  ]
+}
