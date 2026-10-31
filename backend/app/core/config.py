@@ -1,5 +1,6 @@
 """Application settings, read from AEGIS_* environment variables."""
 
+import ipaddress
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -7,9 +8,23 @@ from typing import Literal
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.auth import check_hash
+
+
+def _is_loopback(bind: str) -> bool:
+    """Anything unrecognised counts as exposed, so the check fails closed."""
+    host = bind.strip("[]")
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="AEGIS_")
+    # Inputs stay out of startup errors: one of them is the password hash.
+    model_config = SettingsConfigDict(env_prefix="AEGIS_", hide_input_in_errors=True)
 
     # Model provider. "fake" needs no model and is used by tests and CI.
     llm_provider: Literal["ollama", "fake"] = "ollama"
@@ -58,10 +73,30 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    # Authentication. An empty hash turns it off, for localhost use. The session
+    # hours are an absolute limit. frontend_bind is the address nginx publishes
+    # on, passed in by Compose so the check below can see it.
+    auth_password_hash: str = Field(default="", repr=False)
+    auth_cookie_secure: bool = False
+    auth_session_hours: int = Field(default=8, gt=0)
+    frontend_bind: str = "127.0.0.1"
+
     @model_validator(mode="after")
     def _overlap_below_size(self) -> "Settings":
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
+        return self
+
+    @model_validator(mode="after")
+    def _exposure_needs_authentication(self) -> "Settings":
+        if self.auth_password_hash:
+            check_hash(self.auth_password_hash)
+        exposed = not _is_loopback(self.frontend_bind)
+        if exposed and not (self.auth_password_hash and self.auth_cookie_secure):
+            raise ValueError(
+                "a non-loopback FRONTEND_BIND needs AEGIS_AUTH_PASSWORD_HASH "
+                "and AEGIS_AUTH_COOKIE_SECURE=true"
+            )
         return self
 
 

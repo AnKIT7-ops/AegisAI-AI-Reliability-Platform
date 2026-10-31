@@ -27,14 +27,14 @@ $env:AEGIS_OLLAMA_URL = "http://127.0.0.1:9"
 docker compose up -d --wait backend
 1..3 | ForEach-Object {
   try {
-    Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/chat -ContentType 'application/json' `
+    Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/chat -ContentType 'application/json' `
       -Body '{"question": "How long does Prometheus keep data by default?"}' | Out-Null
   } catch { }                              # the 503s are the point
 }
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/incidents/detect | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/incidents/detect | ConvertTo-Json -Depth 6
 ```
 
-`AegisModelFailures` fires on the next evaluation of the rule; run `detect` once it shows at http://127.0.0.1:9090/alerts.
+`AegisModelFailures` fires on the next evaluation of the rule; run `detect` once it shows at http://localhost:8080/prometheus/alerts.
 
 ## Clean up
 

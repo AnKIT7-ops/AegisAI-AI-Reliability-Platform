@@ -1,4 +1,5 @@
-# All published ports bind to 127.0.0.1 only. Postgres is not published at all.
+# nginx (frontend) is the only published service, on 127.0.0.1 unless FRONTEND_BIND
+# says otherwise. Everything else is reachable only on the Docker network.
 services:
   postgres:
     image: postgres:18.6-alpine
@@ -27,14 +28,22 @@ services:
       # host.docker.internal to it. Never bind Ollama to 0.0.0.0.
       AEGIS_OLLAMA_URL: ${AEGIS_OLLAMA_URL:-http://host.docker.internal:11434}
       # Browser origins allowed to POST; follows FRONTEND_PORT, plus the Vite dev server.
-      AEGIS_ALLOWED_ORIGINS: '["http://localhost:${FRONTEND_PORT:-8080}","http://127.0.0.1:${FRONTEND_PORT:-8080}","http://localhost:5173","http://127.0.0.1:5173"]'
+      AEGIS_ALLOWED_ORIGINS: '${AEGIS_ALLOWED_ORIGINS:-["http://localhost:${FRONTEND_PORT:-8080}","http://127.0.0.1:${FRONTEND_PORT:-8080}","http://localhost:5173","http://127.0.0.1:5173"]}'
+      # A deployment beyond localhost adds its host name to both lists in .env.
+      AEGIS_ALLOWED_HOSTS: '${AEGIS_ALLOWED_HOSTS:-["localhost","127.0.0.1","backend"]}'
       # Evaluation datasets come from the repo (read-only); run reports persist.
       AEGIS_EVAL_DIR: /app/data/evaluation
       AEGIS_EVAL_RUNS_DIR: /app/data/runs
       # Incident detection reads firing alerts and metrics from Prometheus.
       AEGIS_INCIDENT_DIR: /app/data/incidents
       AEGIS_PROMETHEUS_URL: http://prometheus:9090
-      AEGIS_PROMETHEUS_PUBLIC_URL: http://127.0.0.1:${PROMETHEUS_PORT:-9090}
+      AEGIS_PROMETHEUS_PUBLIC_URL: http://localhost:${FRONTEND_PORT:-8080}/prometheus
+      # Sign-in. An empty hash turns it off. The bind address is passed so the
+      # backend can refuse to start when exposed without authentication.
+      AEGIS_AUTH_PASSWORD_HASH: ${AEGIS_AUTH_PASSWORD_HASH:-}
+      AEGIS_AUTH_COOKIE_SECURE: ${AEGIS_AUTH_COOKIE_SECURE:-false}
+      AEGIS_AUTH_SESSION_HOURS: ${AEGIS_AUTH_SESSION_HOURS:-8}
+      AEGIS_FRONTEND_BIND: ${FRONTEND_BIND:-127.0.0.1}
       # Monitoring drills only (docs/runbooks); 0 means off.
       AEGIS_FAULT_DELAY_MS: ${AEGIS_FAULT_DELAY_MS:-0}
       AEGIS_FAULT_ERROR_RATE: ${AEGIS_FAULT_ERROR_RATE:-0}
@@ -43,8 +52,6 @@ services:
       - ./data/evaluation:/app/data/evaluation:ro
       - ./data/incidents:/app/data/incidents:ro
       - evalruns:/app/data/runs
-    ports:
-      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,7 +68,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8080}:8080"
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
     depends_on:
       backend:
         condition: service_healthy
@@ -76,11 +83,12 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=7d
+      # Served at /prometheus/ by nginx, which strips the prefix.
+      - --web.external-url=http://localhost:${FRONTEND_PORT:-8080}/prometheus/
+      - --web.route-prefix=/
     volumes:
       - ./monitoring/prometheus:/etc/prometheus:ro
       - promdata:/prometheus
-    ports:
-      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       backend:
         condition: service_healthy
@@ -99,7 +107,7 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in .env}
-      # Read-only viewing without a login; the port is bound to 127.0.0.1.
+      # Read-only viewing without a Grafana login; nginx guards the path.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -109,15 +117,14 @@ services:
       # No plugin downloads at startup; only what ships in the pinned image.
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
       GF_NEWS_NEWS_FEED_ENABLED: "false"
-      # Reject other Host headers (DNS rebinding), like the backend does.
-      GF_SERVER_DOMAIN: localhost
-      GF_SERVER_ENFORCE_DOMAIN: "true"
+      # Served at /grafana/ by nginx. nginx's auth check also rejects other Host
+      # headers (DNS rebinding), so Grafana does not need to.
+      GF_SERVER_ROOT_URL: http://localhost:${FRONTEND_PORT:-8080}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/aegis-overview.json
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    ports:
-      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     depends_on:
       prometheus:
         condition: service_healthy
