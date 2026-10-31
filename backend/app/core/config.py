@@ -1,4 +1,4 @@
-"""Application settings, read from AEGIS_* environment variables."""
+﻿"""Application settings, read from AEGIS_* environment variables."""
 
 from functools import lru_cache
 from pathlib import Path
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     max_upload_bytes: int = Field(default=1_000_000, gt=0)
     chunk_size: int = Field(default=800, gt=0)
     chunk_overlap: int = Field(default=100, ge=0)
-    top_k: int = Field(default=4, ge=1, le=10)
+    top_k: int = Field(default=1, ge=1, le=10)
     # Below this cosine score a chunk counts as irrelevant; calibrated for
     # nomic-embed-text on the sample corpus (in-scope >= 0.75, off-topic <= 0.65).
     min_score: float = Field(default=0.70, ge=-1, le=1)
