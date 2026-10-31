@@ -28,8 +28,8 @@ class DocumentList(BaseModel):
 
 
 # ponytail: Starlette spools the whole multipart body before this runs, so the
-# size limit bounds what we read, not what the client sends. Ports are
-# localhost-only; add a body-size limit in a reverse proxy before exposing the API.
+# size limit bounds what we read, not what the client sends. nginx, the only
+# published service, refuses bodies over 2 MB before they reach it.
 @router.post("/ingest", status_code=201)
 def ingest(
     file: UploadFile,

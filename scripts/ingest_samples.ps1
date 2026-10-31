@@ -1,6 +1,7 @@
-# Uploads every document in data/sample_docs to a running backend.
-# Usage: .\scripts\ingest_samples.ps1 [-Api http://127.0.0.1:8000]
-param([string]$Api = "http://127.0.0.1:8000")
+# Uploads every document in data/sample_docs through nginx.
+# Works with sign-in off only: it does not hold a session.
+# Usage: .\scripts\ingest_samples.ps1 [-Api http://127.0.0.1:8080]
+param([string]$Api = "http://127.0.0.1:8080")
 
 $docs = Get-ChildItem (Join-Path $PSScriptRoot "..\data\sample_docs") -Filter *.md |
     Where-Object Name -ne "ATTRIBUTION.md"

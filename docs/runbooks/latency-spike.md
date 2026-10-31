@@ -39,13 +39,13 @@ Fault injection adds a fixed delay before every Ollama call (embedding and chat,
 $env:AEGIS_FAULT_DELAY_MS = "6000"         # two calls per chat: about 12 s added
 docker compose up -d --wait backend
 1..12 | ForEach-Object {
-  Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/chat -ContentType 'application/json' `
+  Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/chat -ContentType 'application/json' `
     -Body '{"question": "How long does Prometheus keep data by default?"}' | Out-Null
   Start-Sleep 5
 }
 ```
 
-Expected: **Chat p95 latency** rises above 10 s and, after 2 minutes, `AegisChatLatencyHigh` fires (http://127.0.0.1:9090/alerts). The model-call panel shows the added 6 s per call.
+Expected: **Chat p95 latency** rises above 10 s and, after 2 minutes, `AegisChatLatencyHigh` fires (http://localhost:8080/prometheus/alerts). The model-call panel shows the added 6 s per call.
 
 ## Clean up
 

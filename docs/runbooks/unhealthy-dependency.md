@@ -20,7 +20,7 @@ Do not delete the `pgdata` volume to recover: that destroys evaluation history a
 
 ```powershell
 docker compose stop postgres
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/incidents/detect | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/incidents/detect | ConvertTo-Json -Depth 6
 ```
 
 Expected: an `unhealthy_dependency` incident, `persisted: false`, and `evaluation_runs` under `not_checked`.

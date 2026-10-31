@@ -12,8 +12,8 @@ Alert: `AegisEvaluationGateFailed`: the most recent finished evaluation run did 
 1. Read the failures:
 
    ```powershell
-   $run = (Invoke-RestMethod "http://127.0.0.1:8000/api/v1/evaluations?limit=1").runs[0]
-   (Invoke-RestMethod "http://127.0.0.1:8000/api/v1/evaluations/$($run.id)").gate
+   $run = (Invoke-RestMethod "http://127.0.0.1:8080/api/v1/evaluations?limit=1").runs[0]
+   (Invoke-RestMethod "http://127.0.0.1:8080/api/v1/evaluations/$($run.id)").gate
    ```
 
 2. Match the message:
@@ -29,7 +29,7 @@ Alert: `AegisEvaluationGateFailed`: the most recent finished evaluation run did 
 3. Compare with the last passing run and read the examples that changed:
 
    ```powershell
-   Invoke-RestMethod "http://127.0.0.1:8000/api/v1/evaluations/$($run.id)/report?baseline=<passing run id>"
+   Invoke-RestMethod "http://127.0.0.1:8080/api/v1/evaluations/$($run.id)/report?baseline=<passing run id>"
    ```
 
    Check what changed between the runs: `chat_model`, `embed_model`, `prompt_version`, `top_k`, `min_score` and `config` are stored with every run.
@@ -39,7 +39,7 @@ Alert: `AegisEvaluationGateFailed`: the most recent finished evaluation run did 
 A deliberately degraded configuration fails the gate:
 
 ```powershell
-Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/v1/evaluations/run `
+Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/evaluations/run `
   -ContentType 'application/json' -Body '{"label": "degraded", "top_k": 1, "min_score": 0.0}'
 ```
 
