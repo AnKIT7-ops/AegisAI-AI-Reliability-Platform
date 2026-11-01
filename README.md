@@ -533,8 +533,8 @@ Frontend:
 ```powershell
 cd frontend
 npm ci
-npm run dev       # http://localhost:5173
-npm run lint ; npm run build
+npm run dev       # http://localhost:5173, using the running stack for /api
+npm test ; npm run lint ; npm run build
 ```
 
 ## Stop and clean up
@@ -549,8 +549,8 @@ docker compose down -v     # WARNING: also deletes the pgdata, ragindex, evalrun
 ```text
 .github/    CI workflow
 backend/    FastAPI app (app/: api, core, db, services/llm, services/rag, services/evaluation, services/incidents), alembic/ migrations, tests (unit/, integration/, evaluation/), uv project
-frontend/   React + TypeScript + Vite
-data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios
+frontend/   React + TypeScript + Vite console (src/: pages, components), nginx.conf for the gateway
+data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios; demo/ exported demo data
 monitoring/ Prometheus configuration and alert rules, Grafana provisioning and dashboard
 docs/       runbooks/ for each alert
 scripts/    PowerShell helpers
