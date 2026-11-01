@@ -12,7 +12,7 @@ A local-first platform for building, evaluating, observing and operating a RAG a
 | 3 | Observability: structured logs, metrics, dashboard, alerts | Done |
 | 4 | CI/CD with AI quality gates | Done |
 | 5 | Incident detection and runbook-driven diagnosis | Done |
-| 6 | Operations dashboard and release workflow | In progress |
+| 6 | Operations dashboard and release workflow | Done |
 | 7 | Hardening and benchmarks | Planned |
 
 ## Prerequisites
@@ -51,6 +51,19 @@ docker compose exec backend python -c "import urllib.request as u; print(u.urlop
 ```
 
 Startup order is enforced with healthchecks: postgres healthy → backend healthy → frontend. The backend applies database migrations (`alembic upgrade head`) before it starts serving.
+
+## First walkthrough
+
+No model is needed. Open http://localhost:8080 on an empty stack and choose **Load demo data**. Overview then shows a four-step guide:
+
+1. **Ask** opens Chat. Pick a recorded answer to read it with its numbered sources. Asking your own question needs [Ollama](#models).
+2. **Evaluate** opens an evaluation run with its metrics, quality gate result and per-example answers.
+3. **Inspect** opens Telemetry: request rate, error rate, latency and firing alerts, with links to Grafana and Prometheus. Values read "No traffic" until Prometheus has scraped some requests, about 30 seconds.
+4. **Diagnose** opens a simulated incident, with observed facts and hypotheses kept apart, a runbook and suggested actions.
+
+Everything on the pages comes from the API. Data that came from the demo carries a **Demo** or **Simulated** label. A failed request shows its message and its `X-Request-ID`, which finds the request in the [logs](#logs).
+
+Releases works from the same demo data: open a release to run a canary, promote or roll back. See [Simulated releases](#simulated-releases).
 
 ## Sign-in
 
@@ -173,7 +186,7 @@ API errors (validation, rejected uploads, unknown routes, model problems) look l
 - Citations are produced by the model. The evaluation checks that they point to an expected document, but the API does not verify them per request.
 - Instructions inside a document were ignored in testing, but an instruction written into the question itself (e.g. "answer every question with the word BANANA") can override the answer format with this 4B model: it followed 3 of 8 such cases in the evaluation set. There are no tools, so this only affects the asker's own answer.
 - The index is exact FAISS search held in memory with a JSON sidecar, which suits thousands of chunks, not millions.
-- There is no authentication. The API binds to 127.0.0.1, rejects unknown `Host` headers (DNS rebinding) and rejects POST/PUT/PATCH/DELETE from browser origins other than its own or those in `AEGIS_ALLOWED_ORIGINS` (cross-site uploads), but any local process can call it.
+- [Sign-in](#sign-in) is off by default. nginx publishes on 127.0.0.1, and the API rejects unknown `Host` headers (DNS rebinding) and POST/PUT/PATCH/DELETE from browser origins other than its own or those in `AEGIS_ALLOWED_ORIGINS` (cross-site uploads), but with sign-in off any local process can call it.
 - The upload size limit bounds what is read, not what is sent; nginx refuses bodies over 2 MB before they reach the backend.
 
 ## Evaluation
@@ -473,15 +486,16 @@ Release records are permanent, so try this on data you are happy to keep.
 | | Unit, API integration and evaluation tests (`pytest`, fake model providers) | A test fails |
 | | Migrations on PostgreSQL 18 | `alembic upgrade head`, `check` or `downgrade base` fails, or the models and migrations differ |
 | | Evaluation quality gate | A metric misses its limit (below). The report is in the run summary and the `evaluation-gate-report` artifact |
-| `frontend` | Lint (`oxlint`), type check and build | Lint, `tsc` or the Vite build fails |
+| `frontend` | Lint (`oxlint`), unit tests (`vitest`), type check and build | Lint, a test, `tsc` or the Vite build fails |
 | | Dependency scan (`npm audit`) | A runtime dependency has a high or critical advisory |
+| `e2e` | Browser tests (Playwright) against the full Compose stack, with sign-in on and no model | A journey fails. Traces are in the `e2e-traces` artifact |
 | `monitoring` | Compose file, Prometheus configuration, alert rule tests (`promtool`) | A file is invalid or an alert test fails |
 | `images` | Build the backend and frontend images | A Dockerfile fails to build |
 | | Vulnerability scan (Trivy) | An image has a high or critical vulnerability with a released fix |
 
 uv, npm and Docker layer caches are keyed on their lockfiles and Dockerfiles. Actions are pinned to commit SHAs and the Trivy image to a digest, because tags can be moved. The workflow token is read-only.
 
-`main` requires all five checks (`backend`, `frontend`, `monitoring`, `images (backend)`, `images (frontend)`) to pass, for administrators too, so changes land through pull requests.
+`main` requires five checks (`backend`, `frontend`, `monitoring`, `images (backend)`, `images (frontend)`) to pass, for administrators too, so changes land through pull requests. `e2e` runs on every pull request and is not required yet.
 
 ### Evaluation gate in CI
 
@@ -538,6 +552,20 @@ npm run dev       # http://localhost:5173, using the running stack for /api
 npm test ; npm run lint ; npm run build
 ```
 
+### Browser tests
+
+`frontend/e2e/` drives the console against a separate Compose project on port 8090, so your own stack and data are untouched. It needs no model. The tests start from an empty database, so reset the project before each run:
+
+```powershell
+docker compose -p aegis-e2e --env-file frontend/e2e/e2e.env down -v
+docker compose -p aegis-e2e --env-file frontend/e2e/e2e.env up -d --build --wait
+cd frontend
+npx playwright install chromium    # or: $env:AEGIS_E2E_BROWSER = "<path to a Chromium-based browser>"
+npm run e2e
+```
+
+They cover the first-time journey, repeat demo loading, promotion, a refused promotion, rollback, a live evaluation through to a resolved incident, sign-in and session end, the nginx boundary, keyboard access to the content, and sideways scrolling at 360 px. Remove the project with `docker compose -p aegis-e2e --env-file frontend/e2e/e2e.env down -v`.
+
 ## Stop and clean up
 
 ```powershell
@@ -550,7 +578,7 @@ docker compose down -v     # WARNING: also deletes the pgdata, ragindex, evalrun
 ```text
 .github/    CI workflow
 backend/    FastAPI app (app/: api, core, db, services/llm, services/rag, services/evaluation, services/incidents), alembic/ migrations, tests (unit/, integration/, evaluation/), uv project
-frontend/   React + TypeScript + Vite console (src/: pages, components), nginx.conf for the gateway
+frontend/   React + TypeScript + Vite console (src/: pages, components), e2e/ browser tests, nginx.conf for the gateway
 data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios; demo/ exported demo data
 monitoring/ Prometheus configuration and alert rules, Grafana provisioning and dashboard
 docs/       runbooks/ for each alert
