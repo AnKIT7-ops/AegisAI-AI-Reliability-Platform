@@ -102,3 +102,24 @@ def test_no_containers_stops_the_run_before_it_measures_anything(
     monkeypatch.setattr(benchmark, "output", lambda *command: "")
     with pytest.raises(SystemExit, match="wrong-name"):
         benchmark.Peaks("wrong-name").__enter__()
+
+
+def test_call_reports_status_zero_for_a_truncated_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import http.client
+    import urllib.error
+
+    benchmark = load()
+
+    def truncated(*args: Any, **kwargs: Any) -> Any:
+        raise http.client.IncompleteRead(b"partial")
+
+    monkeypatch.setattr(benchmark.urllib.request, "urlopen", truncated)
+    assert benchmark.call("http://x/health")[0] == 0
+
+    def refused(*args: Any, **kwargs: Any) -> Any:
+        raise urllib.error.HTTPError("http://x", 429, "slow", None, None)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(benchmark.urllib.request, "urlopen", refused)
+    assert benchmark.call("http://x/health")[0] == 429
