@@ -1,0 +1,92 @@
+[
+ {
+  "filename": "k8s-deployments.md",
+  "size_bytes": 58120,
+  "checksum": "2b317367d76ff39e191d16a5d927be515ed1d214596b00b68996052065449f63",
+  "chunks": 100
+ },
+ {
+  "filename": "k8s-horizontal-pod-autoscaling.md",
+  "size_bytes": 32708,
+  "checksum": "274e5822bcb47f352a33252895b81b9a533634180d94e8584cbcfacd1c939518",
+  "chunks": 58
+ },
+ {
+  "filename": "k8s-pod-lifecycle.md",
+  "size_bytes": 53637,
+  "checksum": "bd1ee0cddcb825b2ff06b00ffa5d762f7ba4c22480877b21d1299a905cddf660",
+  "chunks": 97
+ },
+ {
+  "filename": "k8s-probes.md",
+  "size_bytes": 21764,
+  "checksum": "6a594b14db5025df80158c37555f945d622c72a27057a4ca6378d28e0d5af230",
+  "chunks": 36
+ },
+ {
+  "filename": "k8s-resource-management.md",
+  "size_bytes": 33130,
+  "checksum": "200e37c7371cfd9bedb8a06c536f1c112364cbab452ae5a4a7032e21cb2f24bf",
+  "chunks": 59
+ },
+ {
+  "filename": "k8s-secrets.md",
+  "size_bytes": 31095,
+  "checksum": "ca47e194e21d4ff17cb2a5be90b4a7665c9adec07d64dbfd98152190ad1b6766",
+  "chunks": 53
+ },
+ {
+  "filename": "k8s-services.md",
+  "size_bytes": 44222,
+  "checksum": "1309992fc0d1f566e2147556a070351d404a88440e60385aa6ca2d2de89df0f4",
+  "chunks": 75
+ },
+ {
+  "filename": "prometheus-alerting-practices.md",
+  "size_bytes": 3393,
+  "checksum": "6ced2048a0622905dd7b9efd9e66e738ca09f97eae6e65008a58b213984595c8",
+  "chunks": 6
+ },
+ {
+  "filename": "prometheus-alerting-rules.md",
+  "size_bytes": 4829,
+  "checksum": "df8a50826dbbb34ff31a24c7a1e1843cee4264ffa3fa117c333d293a3bba3158",
+  "chunks": 9
+ },
+ {
+  "filename": "prometheus-instrumentation.md",
+  "size_bytes": 12002,
+  "checksum": "f11af94d15b612f97154ec04f68e17031eec232a4c85794be21cf6f44c717229",
+  "chunks": 20
+ },
+ {
+  "filename": "prometheus-metric-naming.md",
+  "size_bytes": 7632,
+  "checksum": "f8bb07623df0db1fc3afc979952d2529a58d8ef517c86383046a46e7ac017bf0",
+  "chunks": 13
+ },
+ {
+  "filename": "prometheus-overview.md",
+  "size_bytes": 4920,
+  "checksum": "5aea0b9fd6a9a91e504aeb2fb75ee519262c8254fc794be055979db830f85654",
+  "chunks": 9
+ },
+ {
+  "filename": "prometheus-querying-basics.md",
+  "size_bytes": 26511,
+  "checksum": "569f0ee4912a26da92f0202fcc41e2caad16c5a22523ce1a4c357cd1bdaf795c",
+  "chunks": 45
+ },
+ {
+  "filename": "prometheus-recording-rules.md",
+  "size_bytes": 5841,
+  "checksum": "d29eacfee6461a479043fd6c5d4a0be4f182d183668abd58b8313bf14856ec01",
+  "chunks": 10
+ },
+ {
+  "filename": "prometheus-storage.md",
+  "size_bytes": 15496,
+  "checksum": "bd5f45b05309067a210e11c222bd43f839ccb66894f39a434d8ad0cba28696d5",
+  "chunks": 29
+ }
+]

@@ -1,0 +1,10 @@
+{
+ "run": "current",
+ "examples": [
+  "prom-storage-01",
+  "services-01",
+  "lifecycle-03",
+  "inject-01",
+  "none-01"
+ ]
+}

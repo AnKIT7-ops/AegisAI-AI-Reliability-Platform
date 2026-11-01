@@ -20,6 +20,7 @@ from app.core.config import Settings
 from app.core.errors import ApiError
 from app.db.models import EvaluationRun, Release, ReleaseEvent
 from app.db.session import connect_args, database_url
+from app.services.demo import load_demo
 from app.services.releases import create_release, promote, rollback, run_canary
 
 pytestmark = pytest.mark.skipif(
@@ -252,3 +253,17 @@ def test_refused_promotion_keeps_its_audit_event(
     events = session.query(ReleaseEvent).filter_by(release_id=release.id).all()
     assert events[-1].event == "promotion_refused"
     assert session.get(Release, release.id).status == "rejected"  # type: ignore[union-attr]
+
+
+def test_demo_load_is_idempotent_with_real_foreign_keys(session: Session) -> None:
+    root = Path(__file__).parents[3] / "data"
+    settings = Settings(
+        llm_provider="fake",
+        eval_dir=root / "evaluation",
+        demo_dir=root / "demo",
+        incident_dir=root / "incidents",
+    )
+    first = load_demo(session, settings)
+    assert first["created"]["releases"] == 3
+    second = load_demo(session, settings)
+    assert set(second["created"].values()) == {0}

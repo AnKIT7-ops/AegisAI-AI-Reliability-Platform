@@ -1,0 +1,17 @@
+[
+ {
+  "version": "demo-1",
+  "run": "known-good",
+  "status": "superseded"
+ },
+ {
+  "version": "demo-2",
+  "run": "current",
+  "status": "active"
+ },
+ {
+  "version": "demo-3",
+  "run": "degraded",
+  "status": "rejected"
+ }
+]

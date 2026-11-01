@@ -101,6 +101,8 @@ Settings are environment variables with the `AEGIS_` prefix (see `backend/app/co
 | `AEGIS_FAULT_DELAY_MS` / `AEGIS_FAULT_ERROR_RATE` | `0` / `0` | Monitoring drills only: a delay before every Ollama call (0 to 60000 ms) and the share of calls that fail as `injected` (0 to 1). The backend logs a warning at startup while either is set. See [Runbooks](#runbooks) |
 | `AEGIS_PROMETHEUS_URL` | `http://127.0.0.1:9090` (compose: `http://prometheus:9090`) | Where incident detection reads alerts and metrics |
 | `AEGIS_PROMETHEUS_PUBLIC_URL` | `http://127.0.0.1:9090` (compose: `http://localhost:8080/prometheus`) | Base of the links in incident reports; must open in a browser |
+| `AEGIS_GRAFANA_PUBLIC_URL` | `http://127.0.0.1:3000` (compose: `http://localhost:8080/grafana/`) | Grafana link in the telemetry summary |
+| `AEGIS_DEMO_DIR` | `data/demo` | Demo fixtures |
 | `AEGIS_AUTH_PASSWORD_HASH` | empty | Turns on [sign-in](#sign-in). A malformed value stops the backend at startup |
 | `AEGIS_AUTH_COOKIE_SECURE` | `false` | Marks the session cookie `Secure`; needs HTTPS in front |
 | `AEGIS_AUTH_SESSION_HOURS` | `8` | Absolute session lifetime |
@@ -152,6 +154,9 @@ with four sources from `prometheus-storage.md` (scores 0.73–0.76). A question 
 | `POST /api/v1/releases/{id}/rollback` | `{"target_release_id": "...", "reason": "..."}` → reactivate a superseded release |
 | `GET /api/v1/releases` | Releases, newest first (`?source=live` or `demo`, `?status=`, `?limit=` up to 200) |
 | `GET /api/v1/releases/{id}` | One release with its comparison and audit history |
+| `GET /api/v1/telemetry` | Current request rate, error ratio, latency, model failures, firing alerts and database state; see [Telemetry summary](#telemetry-summary) |
+| `GET /api/v1/demo` | Whether the demo is loaded, its documents and recorded answers |
+| `POST /api/v1/demo/load` | Insert the demo data; safe to repeat. See [Demo data](#demo-data) |
 
 API errors (validation, rejected uploads, unknown routes, model problems) look like `{"error": {"code": "...", "message": "..."}}`. `503 model_unavailable` means Ollama is down, slow or missing a model.
 
@@ -390,6 +395,37 @@ All six incident types were reproduced live against this stack. For example, wit
 - Failed-request events are kept in memory, the latest 500 per process. After a restart a report has no request IDs and confidence drops to medium.
 - Latency hypotheses compare percentiles of separate histograms, which is an approximation. Retrieval p95 reads at most 5 s, the top histogram bucket.
 - Comparing evaluation runs covers recorded settings only. A changed document index does not show up.
+
+### Telemetry summary
+
+`GET /api/v1/telemetry` reads Prometheus and checks the database. A null value means no traffic in the last 5 minutes, never zero, and anything unreadable is named in `not_checked`. It does not probe Ollama, because a failed probe would itself count as a model failure.
+
+## Demo data
+
+The demo works with no model installed:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8080/api/v1/demo/load
+Invoke-RestMethod http://127.0.0.1:8080/api/v1/demo
+```
+
+`data/demo/` holds three real evaluation runs, exported from a run of this project on the sample documents. No number in it is invented. Loading adds:
+
+| Record | Detail |
+|---|---|
+| Evaluation runs | Three, with every per-example answer, marked `source: demo`. Two pass the quality gate and one fails it. |
+| Releases | `demo-1` superseded, `demo-2` active, `demo-3` rejected, with their history. |
+| Incident | `model_timeout`, diagnosed from `data/incidents/model_timeout.json`, marked `simulated`. |
+
+The documents and recorded answers are shown from `GET /api/v1/demo`; nothing is written to the document index. Questions you ask in the chat still need Ollama.
+
+Loading is safe to repeat. It inserts only what is absent and never updates or deletes, so anything you did to a demo record stays. There is no way to remove demo records, and they accept release actions, so a rollback you try is kept. Demo records never mix with live ones: incident detection ignores demo runs, and baselines and rollback targets must share a source.
+
+The quality gate is applied at load time. If the dataset or thresholds change so that the runs no longer tell the same story, loading returns `409 demo_stale` and writes nothing. Regenerate the fixtures with the stack running and sign-in off:
+
+```powershell
+python scripts/export_demo.py
+```
 
 ## Simulated releases
 

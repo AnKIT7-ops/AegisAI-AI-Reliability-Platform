@@ -98,6 +98,22 @@ def _commit_transition(session: Session) -> None:
         ) from None
 
 
+def snapshot(run: EvaluationRun) -> dict[str, Any]:
+    """What a release keeps from its run. Frozen once stored."""
+    return {
+        "evaluation_run_id": run.id,
+        "dataset_version": run.dataset_version,
+        "dataset_checksum": run.dataset_checksum,
+        "prompt_version": run.prompt_version,
+        "chat_model": run.chat_model,
+        "embed_model": run.embed_model,
+        "top_k": run.top_k,
+        "min_score": run.min_score,
+        "config": run.config,
+        "metrics": run.metrics or {},
+    }
+
+
 def create_release(
     session: Session, version: str, run_id: uuid.UUID, actor: str
 ) -> Release:
@@ -111,19 +127,7 @@ def create_release(
             f"evaluation run is {run.status}; only a completed run can be released",
         )
     release = Release(
-        version=version,
-        source=run.source,
-        status="candidate",
-        evaluation_run_id=run.id,
-        dataset_version=run.dataset_version,
-        dataset_checksum=run.dataset_checksum,
-        prompt_version=run.prompt_version,
-        chat_model=run.chat_model,
-        embed_model=run.embed_model,
-        top_k=run.top_k,
-        min_score=run.min_score,
-        config=run.config,
-        metrics=run.metrics or {},
+        version=version, source=run.source, status="candidate", **snapshot(run)
     )
     _record(release, "created", actor, to_status="candidate")
     session.add(release)

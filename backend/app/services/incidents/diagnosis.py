@@ -28,6 +28,7 @@ ERROR_RATIO = (
     'sum(rate(aegis_http_requests_total{status=~"5..",route!~"/health.*|/metrics"}'
     '[5m])) / sum(rate(aegis_http_requests_total{route!~"/health.*|/metrics"}[5m]))'
 )
+REQUEST_RATE = 'sum(rate(aegis_http_requests_total{route!~"/health.*|/metrics"}[5m]))'
 MODEL_FAILURES = (
     'sum by (outcome) (increase(aegis_model_requests_total{outcome!="ok"}[5m]))'
 )

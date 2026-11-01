@@ -23,6 +23,7 @@ from app.services.incidents.diagnosis import (
     ERROR_RATIO,
     MODEL_FAILURES,
     MODEL_P95,
+    REQUEST_RATE,
     RETRIEVAL_P95,
     LogEvent,
     RunSignal,
@@ -31,6 +32,7 @@ from app.services.incidents.diagnosis import (
 
 # Finding the last passing run looks this far back.
 RUN_HISTORY = 20
+PROMETHEUS_ERRORS = (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError)
 
 
 class Prometheus:
@@ -122,7 +124,7 @@ def collect(
     not_checked = []
     try:
         fields |= _metrics(prometheus)
-    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
+    except PROMETHEUS_ERRORS:
         not_checked += ["alerts", "metrics"]
     try:
         with sessions() as session:
@@ -139,3 +141,40 @@ def collect(
         **fields,
     )
     return signals, not_checked
+
+
+def telemetry(
+    prometheus: Prometheus,
+    sessions: sessionmaker[Session],
+    settings: Settings,
+    now: datetime,
+) -> dict[str, Any]:
+    """What is happening now, with no diagnosis. Nothing here is stored."""
+    metrics: dict[str, Any] = {}
+    not_checked = []
+    try:
+        metrics = _metrics(prometheus)
+        metrics["request_rate_per_s"] = prometheus.value(REQUEST_RATE)
+    except PROMETHEUS_ERRORS:
+        metrics = {}
+        not_checked = ["alerts", "metrics"]
+    try:
+        with sessions() as session:
+            session.execute(text("SELECT 1"))
+        database = "ok"
+    except OperationalError:
+        database = "unavailable"
+    return {
+        "observed_at": now.isoformat(),
+        "database": database,
+        "not_checked": not_checked,
+        "firing_alerts": metrics.get("alerts"),
+        "request_rate_per_s": metrics.get("request_rate_per_s"),
+        "error_ratio": metrics.get("error_ratio"),
+        "chat_p95_s": metrics.get("chat_p95_s"),
+        "model_p95_s": metrics.get("model_p95_s"),
+        "retrieval_p95_s": metrics.get("retrieval_p95_s"),
+        "model_failures": metrics.get("model_failures"),
+        "grafana_url": settings.grafana_public_url,
+        "prometheus_url": settings.prometheus_public_url,
+    }
