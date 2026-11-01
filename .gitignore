@@ -28,3 +28,5 @@ Thumbs.db
 **/data/index/
 **/data/runs/
 **/ci-report/
+frontend/e2e/.auth/
+frontend/test-results/

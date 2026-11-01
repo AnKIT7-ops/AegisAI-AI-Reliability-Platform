@@ -27,6 +27,8 @@ services:
       # Ollama runs on the host, bound to 127.0.0.1; Docker Desktop forwards
       # host.docker.internal to it. Never bind Ollama to 0.0.0.0.
       AEGIS_OLLAMA_URL: ${AEGIS_OLLAMA_URL:-http://host.docker.internal:11434}
+      # "fake" needs no model: the browser tests use it.
+      AEGIS_LLM_PROVIDER: ${AEGIS_LLM_PROVIDER:-ollama}
       # Browser origins allowed to POST; follows FRONTEND_PORT, plus the Vite dev server.
       AEGIS_ALLOWED_ORIGINS: '${AEGIS_ALLOWED_ORIGINS:-["http://localhost:${FRONTEND_PORT:-8080}","http://127.0.0.1:${FRONTEND_PORT:-8080}","http://localhost:5173","http://127.0.0.1:5173"]}'
       # A deployment beyond localhost adds its host name to both lists in .env.
