@@ -36,8 +36,10 @@ services:
       AEGIS_EVAL_RUNS_DIR: /app/data/runs
       # Incident detection reads firing alerts and metrics from Prometheus.
       AEGIS_INCIDENT_DIR: /app/data/incidents
+      AEGIS_DEMO_DIR: /app/data/demo
       AEGIS_PROMETHEUS_URL: http://prometheus:9090
       AEGIS_PROMETHEUS_PUBLIC_URL: http://localhost:${FRONTEND_PORT:-8080}/prometheus
+      AEGIS_GRAFANA_PUBLIC_URL: http://localhost:${FRONTEND_PORT:-8080}/grafana/
       # Sign-in. An empty hash turns it off. The bind address is passed so the
       # backend can refuse to start when exposed without authentication.
       AEGIS_AUTH_PASSWORD_HASH: ${AEGIS_AUTH_PASSWORD_HASH:-}
@@ -51,6 +53,7 @@ services:
       - ragindex:/app/data/index
       - ./data/evaluation:/app/data/evaluation:ro
       - ./data/incidents:/app/data/incidents:ro
+      - ./data/demo:/app/data/demo:ro
       - evalruns:/app/data/runs
     depends_on:
       postgres:

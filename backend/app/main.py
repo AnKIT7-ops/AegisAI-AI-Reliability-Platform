@@ -14,11 +14,13 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from app.api import (
     auth,
     chat,
+    demo,
     documents,
     evaluations,
     incidents,
     models,
     releases,
+    telemetry,
 )
 from app.api.auth import auth_denial
 from app.api.deps import get_sessionmaker
@@ -140,6 +142,8 @@ app.include_router(chat.router)
 app.include_router(evaluations.router)
 app.include_router(incidents.router)
 app.include_router(releases.router)
+app.include_router(telemetry.router)
+app.include_router(demo.router)
 
 
 @app.get("/metrics", include_in_schema=False)
