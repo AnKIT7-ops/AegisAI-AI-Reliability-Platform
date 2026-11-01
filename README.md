@@ -13,7 +13,33 @@ A local-first platform for building, evaluating, observing and operating a RAG a
 | 4 | CI/CD with AI quality gates | Done |
 | 5 | Incident detection and runbook-driven diagnosis | Done |
 | 6 | Operations dashboard and release workflow | Done |
-| 7 | Hardening and benchmarks | Planned |
+| 7 | Hardening and benchmarks | In progress |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    browser[Browser or script] -->|127.0.0.1:8080| nginx
+    subgraph network[Docker Compose network]
+        nginx[nginx: console, gateway, rate limit]
+        backend[FastAPI backend]
+        postgres[(PostgreSQL)]
+        index[(FAISS index)]
+        prometheus[Prometheus]
+        grafana[Grafana]
+        nginx -->|/api/| backend
+        nginx -->|/prometheus/| prometheus
+        nginx -->|/grafana/| grafana
+        backend --> postgres
+        backend --> index
+        backend -->|alerts and metrics| prometheus
+        prometheus -->|scrapes /metrics| backend
+        grafana --> prometheus
+    end
+    backend -->|host.docker.internal:11434| ollama[Ollama on the host]
+```
+
+Only nginx is published. A question goes through nginx to the backend, which embeds it with Ollama, searches the FAISS index and sends the sources to the chat model. Evaluation runs, incidents and release records are stored in PostgreSQL. Prometheus scrapes the backend's metrics and evaluates the alert rules, and incident detection reads those alerts back to build a report.
 
 ## Prerequisites
 
@@ -64,6 +90,17 @@ No model is needed. Open http://localhost:8080 on an empty stack and choose **Lo
 Everything on the pages comes from the API. Data that came from the demo carries a **Demo** or **Simulated** label. A failed request shows its message and its `X-Request-ID`, which finds the request in the [logs](#logs).
 
 Releases works from the same demo data: open a release to run a canary, promote or roll back. See [Simulated releases](#simulated-releases).
+
+These screenshots come from a fresh clone with demo data and no model running.
+
+| | |
+|---|---|
+| ![Overview with the four-step guide and status readouts](docs/images/overview.png) | ![A recorded answer in Chat](docs/images/chat.png) |
+| Overview | Chat |
+| ![An evaluation run with its quality gate and metrics](docs/images/evaluation.png) | ![Telemetry readouts and firing alerts](docs/images/telemetry.png) |
+| Evaluation run | Telemetry |
+| ![An incident with observed facts and hypotheses kept apart](docs/images/incident.png) | ![A rejected release showing its gate failures](docs/images/release-rejected.png) |
+| Incident | Rejected release |
 
 ## Sign-in
 
@@ -492,7 +529,7 @@ Release records are permanent, so try this on data you are happy to keep.
 
 ## Benchmarks
 
-One run on one laptop: Intel Core i7-13700HX, 16 GB RAM, NVIDIA RTX 4050 Laptop GPU (6 GB), Windows 11, Docker 29.8, Ollama 0.40.12, `qwen3.5:4b`, `nomic-embed-text`, top_k 4, min_score 0.70, 15 documents. The full report, raw latencies and settings are in [docs/benchmarks/2026-11-01](docs/benchmarks/2026-11-01/report.md).
+One run on one laptop: Intel Core i7-13700HX, 16 GB RAM, NVIDIA RTX 4050 Laptop GPU (6 GB), Windows 11, Docker 29.8, Ollama 0.40.12, `qwen3.5:4b`, `nomic-embed-text`, top_k 4, min_score 0.70, 15 documents. The full report, raw latencies and settings are in [docs/benchmarks/2026-11-01](docs/benchmarks/2026-11-01/report.md). The report names commit `99ee796`, the branch commit it ran on. The same script is `c715322` on `main`.
 
 Latency is measured at the client, through nginx. Percentiles are nearest rank over successful requests. **Wrong** counts an HTTP 200 with the wrong kind of reply: here, an answerable question that came back with no sources, which is how a refusal looks. Those requests are left out of the latency figures. The check reads `sources` only, so the saved results do not show the reply text.
 
@@ -579,6 +616,56 @@ uv run python -m app.services.evaluation.ci_gate --top-k 1 --min-score 0   # deg
 - Before tagging, run the live evaluation on that commit; the quality gate must pass. The release notes record the run ID, models, prompt version and dataset version with checksum.
 - Quality inputs have their own versions: `PROMPT_VERSION` in `backend/app/services/rag/answer.py` and the dataset file name plus checksum. Limit files are pinned to a checksum, so a dataset edit requires a new measurement.
 
+## Reproduce the results
+
+| Result | How |
+|---|---|
+| Unit and API tests | `uv run pytest -q` in `backend/`, `npm test` in `frontend/`. No model needed |
+| Evaluation gate, fake model | [Evaluation gate in CI](#evaluation-gate-in-ci). No model needed |
+| Evaluation, real model | [Run an evaluation](#run-an-evaluation-powershell). Compare the dataset checksum first |
+| Browser journeys | [Browser tests](#browser-tests). No model needed |
+| Latency and resource use | [Benchmarks](#benchmarks). Expect different figures on other hardware |
+| Incidents | [Reproduce an incident](#reproduce-an-incident) replays a recorded snapshot. Each [runbook](#runbooks) has a live drill |
+
+## Known limitations
+
+This is a single-machine system for evaluating and operating a local RAG application. It is not a production deployment.
+
+- **One process on one machine.** Sessions live in memory in one uvicorn process, so a restart signs everyone out and adding workers would break sign-in. The document index is also held in memory.
+- **One shared password.** There are no user accounts, and an audit event shows how an action was authorized, not who took it.
+- **No TLS.** Exposing the stack needs a TLS terminator in front. See [Exposing beyond localhost](#exposing-beyond-localhost).
+- **Releases are simulated.** A promotion or rollback records a decision and changes no live setting.
+- **Model capacity.** Answered throughput stayed flat as concurrency rose in the [benchmark](#benchmarks), so waits grow with the number of users. The rate limit does not queue or shed by cost.
+- **Rate limits are per address.** Behind Docker Desktop all clients can share one address, so one client can use up the limit for everyone.
+- **Evaluation runs.** Two requests at the same moment can both start a run, because the check and the insert are separate steps. This takes simultaneous clicks in practice.
+- **Detection runs when called.** There is no background polling, notification or Alertmanager, and no tracing.
+- **Demo records stay.** They cannot be removed without deleting the database volume.
+- **Platforms tested.** The real model ran only on Windows 11 with Docker Desktop. Ubuntu is covered by CI with fake model providers.
+- **Accessibility.** Browser tests cover the skip link, focus after a route change and 360 px layouts. There has been no screen reader pass.
+- **The `e2e` CI job is not a required check yet.** One test failed once locally, its error was not kept, and the cause is unknown.
+
+More specific limits are listed with their features: [answers and retrieval](#limitations), [evaluation measurements](#limitations-of-the-measurements), [the CI gate](#evaluation-gate-in-ci) and [incident detection](#limitations-1).
+
+## Troubleshooting
+
+| Symptom | Likely cause | What to do |
+|---|---|---|
+| `failed to connect to the docker API` | Docker Desktop is not running | Start it, then run the command again |
+| `up` stops with `set in .env` | `.env` is missing or a required value is empty | `Copy-Item .env.example .env`, then set the passwords |
+| `port is already allocated` | Something else uses port 8080 | Set `FRONTEND_PORT` in `.env` |
+| The backend never becomes healthy | Bad settings, such as symbols in `POSTGRES_PASSWORD`, a malformed password hash, or a non-loopback `FRONTEND_BIND` without sign-in | `docker compose logs backend` |
+| `503 model_unavailable` | Ollama is down, slow or missing a model | `Invoke-RestMethod http://127.0.0.1:8080/api/v1/models` shows which, then see [Models](#models) |
+| The first answer takes a minute | The model is loading | Wait. Later answers are much faster |
+| Telemetry reads "No traffic" | Prometheus has not scraped twice yet, or no requests were made | Wait about 30 seconds and refresh |
+| `400` from every API call | The `Host` header is not allowed | Add the host name to `AEGIS_ALLOWED_HOSTS` |
+| `403` on a change | The browser origin is not allowed, or the CSRF token is missing | Add the origin to `AEGIS_ALLOWED_ORIGINS`, or sign in again |
+| `429 rate_limited` | Too many costly requests in a short time | Wait and retry. See [Security](#security) |
+| `409 evaluation_running` | One run is already going | Wait for it to finish |
+| `409 demo_stale` | The dataset or limits changed under the fixtures | See [Demo data](#demo-data) |
+| The index refuses to load | The embedding model changed | See [Models](#models) for rebuilding it |
+| Sign-in does not stick | The browser is on `127.0.0.1` | Use `localhost` in the browser |
+| Scripts take 2 s per request on Windows | They connect to `localhost` | Use `127.0.0.1` |
+
 ## Develop without Docker (PowerShell)
 
 Backend:
@@ -620,6 +707,8 @@ docker compose down        # stops containers and keeps the database volume
 docker compose down -v     # WARNING: also deletes the pgdata, ragindex, evalruns and promdata volumes (database, document index, evaluation reports, metrics history)
 ```
 
+Setup and teardown were checked from a fresh clone on 2026-11-01. `docker compose up -d --build --wait` took 63 s with image layers already cached, and `docker compose down -v` left no containers, volumes or networks. The built images stay until you remove them with `docker image rm`.
+
 ## Layout
 
 ```text
@@ -628,6 +717,6 @@ backend/    FastAPI app (app/: api, core, db, services/llm, services/rag, servic
 frontend/   React + TypeScript + Vite console (src/: pages, components), e2e/ browser tests, nginx.conf for the gateway
 data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios; demo/ exported demo data
 monitoring/ Prometheus configuration and alert rules, Grafana provisioning and dashboard
-docs/       runbooks/ for each alert; benchmarks/ saved results
+docs/       runbooks/ for each alert; benchmarks/ saved results; images/ screenshots
 scripts/    Ingest, demo export and benchmark helpers
 ```
