@@ -6,7 +6,7 @@ import type { Release } from '../types'
 import Releases from './Releases'
 
 const BASE: Release = {
-  id: 'r1',
+  id: '00000000-0000-4000-8000-000000000001',
   version: 'demo-1',
   source: 'demo',
   status: 'superseded',
@@ -21,10 +21,10 @@ const BASE: Release = {
   comparison: null,
   events: [],
 }
-const ACTIVE: Release = { ...BASE, id: 'r2', version: 'demo-2', status: 'active' }
+const ACTIVE: Release = { ...BASE, id: '00000000-0000-4000-8000-000000000002', version: 'demo-2', status: 'active' }
 const REJECTED: Release = {
   ...BASE,
-  id: 'r3',
+  id: '00000000-0000-4000-8000-000000000003',
   version: 'demo-3',
   status: 'rejected',
   gate_passed: false,
@@ -32,13 +32,13 @@ const REJECTED: Release = {
 }
 const CANDIDATE: Release = {
   ...BASE,
-  id: 'r4',
+  id: '00000000-0000-4000-8000-000000000004',
   version: 'next',
   status: 'candidate',
   gate_passed: null,
 }
-const PASSED: Release = { ...BASE, id: 'r5', version: 'ready', status: 'canary_passed' }
-const LIVE_OLD: Release = { ...BASE, id: 'r6', version: 'live-1', source: 'live' }
+const PASSED: Release = { ...BASE, id: '00000000-0000-4000-8000-000000000005', version: 'ready', status: 'canary_passed' }
+const LIVE_OLD: Release = { ...BASE, id: '00000000-0000-4000-8000-000000000006', version: 'live-1', source: 'live' }
 const RUNS = 'GET /evaluations?limit=50'
 const LIST = 'GET /releases?limit=50'
 const ALL = [REJECTED, ACTIVE, BASE, CANDIDATE, PASSED, LIVE_OLD]
@@ -95,22 +95,22 @@ describe('Releases', () => {
   })
 
   it('runs a canary', async () => {
-    const calls = open(CANDIDATE, { 'POST /releases/r4/canary': PASSED })
+    const calls = open(CANDIDATE, { 'POST /releases/00000000-0000-4000-8000-000000000004/canary': PASSED })
     render(<Releases />)
     await userEvent.click(await screen.findByRole('button', { name: 'Run canary' }))
     await screen.findByRole('button', { name: 'Run canary' })
-    expect(calls.some((c) => c.key === 'POST /releases/r4/canary')).toBe(true)
+    expect(calls.some((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000004/canary')).toBe(true)
   })
 
   it('asks before promoting', async () => {
-    const calls = open(PASSED, { 'POST /releases/r5/promote': ACTIVE })
+    const calls = open(PASSED, { 'POST /releases/00000000-0000-4000-8000-000000000005/promote': ACTIVE })
     render(<Releases />)
     await userEvent.click(await screen.findByRole('button', { name: 'Promote' }))
-    expect(calls.some((c) => c.key === 'POST /releases/r5/promote')).toBe(false)
+    expect(calls.some((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000005/promote')).toBe(false)
     expect(screen.getByText(/gate is checked again/)).toBeTruthy()
     await userEvent.click(screen.getByRole('button', { name: 'Yes, promote' }))
     await screen.findByRole('link', { name: 'ready' })
-    expect(calls.some((c) => c.key === 'POST /releases/r5/promote')).toBe(true)
+    expect(calls.some((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000005/promote')).toBe(true)
   })
 
   it('cancels a promotion', async () => {
@@ -124,7 +124,7 @@ describe('Releases', () => {
 
   it('shows a refused promotion', async () => {
     open(PASSED, {
-      'POST /releases/r5/promote': () =>
+      'POST /releases/00000000-0000-4000-8000-000000000005/promote': () =>
         apiError(409, 'gate_failed', 'recall_at_k: not measured', {
           'X-Request-ID': 'req-2',
         }),
@@ -153,27 +153,27 @@ describe('Releases', () => {
   })
 
   it('rolls back to the named release after asking', async () => {
-    const calls = open(ACTIVE, { 'POST /releases/r2/rollback': ACTIVE })
+    const calls = open(ACTIVE, { 'POST /releases/00000000-0000-4000-8000-000000000002/rollback': ACTIVE })
     render(<Releases />)
     await userEvent.type(await screen.findByLabelText('Reason'), 'latency')
     await userEvent.click(
       screen.getByRole('button', { name: 'Roll back to demo-1' }),
     )
-    expect(calls.some((c) => c.key === 'POST /releases/r2/rollback')).toBe(false)
+    expect(calls.some((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000002/rollback')).toBe(false)
     await userEvent.click(
       screen.getByRole('button', { name: 'Yes, roll back to demo-1' }),
     )
     await screen.findByRole('link', { name: 'demo-2' })
-    const call = calls.find((c) => c.key === 'POST /releases/r2/rollback')
-    expect(call?.init.body).toBe('{"target_release_id":"r1","reason":"latency"}')
+    const call = calls.find((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000002/rollback')
+    expect(call?.init.body).toBe('{"target_release_id":"00000000-0000-4000-8000-000000000001","reason":"latency"}')
   })
 
   it('says when there is nothing to roll back to', async () => {
-    window.location.hash = '#/releases?id=r2'
+    window.location.hash = '#/releases?id=00000000-0000-4000-8000-000000000002'
     stubApi({
       [LIST]: { releases: [ACTIVE] },
       [RUNS]: { runs: [] },
-      'GET /releases/r2': ACTIVE,
+      'GET /releases/00000000-0000-4000-8000-000000000002': ACTIVE,
     })
     render(<Releases />)
     expect(await screen.findByText(/No earlier release/)).toBeTruthy()
@@ -184,7 +184,7 @@ describe('Releases', () => {
       ...PASSED,
       comparison: {
         status: 'comparable',
-        baseline_release_id: 'r2',
+        baseline_release_id: '00000000-0000-4000-8000-000000000002',
         metrics: [
           {
             name: 'latency_ms_p95',
@@ -204,7 +204,7 @@ describe('Releases', () => {
   it('gives no promotion advice once the decision is made', async () => {
     const comparison = {
       status: 'comparable' as const,
-      baseline_release_id: 'r2',
+      baseline_release_id: '00000000-0000-4000-8000-000000000002',
       metrics: [
         {
           name: 'recall_at_k',
@@ -226,7 +226,7 @@ describe('Releases', () => {
       ...PASSED,
       comparison: {
         status: 'dataset_changed',
-        baseline_release_id: 'r2',
+        baseline_release_id: '00000000-0000-4000-8000-000000000002',
         metrics: [],
       },
     })
@@ -264,8 +264,8 @@ describe('Releases', () => {
           { id: 'run-b', label: 'broken', status: 'failed', source: 'live' },
         ],
       },
-      'POST /releases': { ...CANDIDATE, id: 'r9' },
-      'GET /releases/r9': { ...CANDIDATE, id: 'r9' },
+      'POST /releases': { ...CANDIDATE, id: '00000000-0000-4000-8000-000000000009' },
+      'GET /releases/00000000-0000-4000-8000-000000000009': { ...CANDIDATE, id: '00000000-0000-4000-8000-000000000009' },
     })
     render(<Releases />)
     await userEvent.type(await screen.findByLabelText('Version'), '1.0.0')
@@ -300,5 +300,13 @@ describe('Releases', () => {
     render(<Releases />)
     expect((await screen.findByRole('alert')).textContent).toContain('database down')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  })
+
+  it('ignores an id in the link that is not a uuid', async () => {
+    window.location.hash = '#/releases?id=../demo'
+    const calls = stubApi({ [LIST]: { releases: [ACTIVE] }, [RUNS]: { runs: [] } })
+    render(<Releases />)
+    await screen.findByRole('link', { name: 'demo-2' })
+    expect(calls.some((c) => c.key.includes('..'))).toBe(false)
   })
 })

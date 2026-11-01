@@ -14,6 +14,6 @@ RUN useradd --system --uid 10001 aegis \
 USER aegis
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
-# 0.0.0.0 is inside the container only; docker-compose.yml publishes it on 127.0.0.1.
+# 0.0.0.0 is inside the container only; docker-compose.yml does not publish this port.
 # Migrations run first; uvicorn only starts on a schema at head.
 CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

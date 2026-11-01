@@ -45,6 +45,15 @@ test('a failed request shows its message and request ID', async ({ page }) => {
   await expect(alert).toContainText('Request ID')
 })
 
+test('a crafted id in the URL never reaches the API', async ({ page }) => {
+  const calls: string[] = []
+  page.on('request', (request) => calls.push(request.url()))
+  await page.goto('/#/incidents/..%2Freleases')
+  await heading(page, 'That page does not exist')
+  expect(calls.filter((url) => url.includes('..'))).toHaveLength(0)
+  expect(calls.filter((url) => url.includes('/incidents/'))).toHaveLength(0)
+})
+
 test('the keyboard reaches the content', async ({ page }) => {
   await page.goto('/')
   await heading(page, 'Overview')

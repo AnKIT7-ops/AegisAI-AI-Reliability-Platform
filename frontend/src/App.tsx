@@ -13,7 +13,7 @@ import Login from './pages/Login'
 import Overview from './pages/Overview'
 import Releases from './pages/Releases'
 import Telemetry from './pages/Telemetry'
-import { useRoute } from './route'
+import { isId, useRoute } from './route'
 import type { SessionState } from './types'
 import { useApi } from './useApi'
 
@@ -36,10 +36,12 @@ function Page({ path, query }: { path: string; query: URLSearchParams }) {
   if (section === 'releases') return <Releases />
   if (section === 'evaluations') {
     if (id === 'compare') return <Compare query={query} />
-    return id ? <EvaluationDetail id={id} /> : <Evaluations />
+    if (!id) return <Evaluations />
+    return isId(id) ? <EvaluationDetail id={id} /> : <NotFound />
   }
   if (section === 'incidents') {
-    return id ? <IncidentDetail id={id} /> : <Incidents />
+    if (!id) return <Incidents />
+    return isId(id) ? <IncidentDetail id={id} /> : <NotFound />
   }
   return <NotFound />
 }

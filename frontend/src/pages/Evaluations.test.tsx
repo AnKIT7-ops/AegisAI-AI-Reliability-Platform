@@ -277,8 +277,8 @@ describe('EvaluationDetail', () => {
 })
 
 describe('Compare', () => {
-  const PATH = 'GET /evaluations/b/comparison?baseline=a'
-  const query = new URLSearchParams('a=a&b=b')
+  const PATH = 'GET /evaluations/bbbbbbbb-0000-4000-8000-000000000002/comparison?baseline=aaaaaaaa-0000-4000-8000-000000000001'
+  const query = new URLSearchParams('a=aaaaaaaa-0000-4000-8000-000000000001&b=bbbbbbbb-0000-4000-8000-000000000002')
   const COMPARISON = {
     status: 'comparable',
     run: { ...FAILED, top_k: 1 },
@@ -304,6 +304,13 @@ describe('Compare', () => {
   it('asks for two runs', () => {
     render(<Compare query={new URLSearchParams()} />)
     expect(screen.getByText('Choose two runs to compare')).toBeTruthy()
+  })
+
+  it('never sends an id that is not one', () => {
+    const calls = stubApi({})
+    render(<Compare query={new URLSearchParams('a=../demo&b=x')} />)
+    expect(screen.getByText('Choose two runs to compare')).toBeTruthy()
+    expect(calls).toHaveLength(0)
   })
 
   it('shows settings and says what changed', async () => {

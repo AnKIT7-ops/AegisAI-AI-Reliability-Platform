@@ -17,8 +17,8 @@ function Reference({ value }: { value: string }) {
 function Facts({ facts }: { facts: Fact[] }) {
   return (
     <ul className="evidence">
-      {facts.map((fact) => (
-        <li key={fact.statement}>
+      {facts.map((fact, index) => (
+        <li key={index}>
           <Tag>{fact.source}</Tag> {fact.statement}
           {fact.reference && (
             <>
