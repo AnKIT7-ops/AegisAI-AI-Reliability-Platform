@@ -139,8 +139,9 @@ with four sources from `prometheus-storage.md` (scores 0.73–0.76). A question 
 | `POST /api/v1/chat` | `{"question": "...", "top_k": 4}` → `{answer, sources[{n, filename, document_id, chunk_id, score, snippet}], model, latency_ms, usage{prompt_tokens, completion_tokens}}` (`model` and `usage` are null when no model was called) |
 | `GET /api/v1/models` | Configured models and whether Ollama has them |
 | `POST /api/v1/evaluations/run` | `{"label": "baseline", "dataset": "v1", "top_k": 4, "min_score": 0.7}` (all optional) → 202 `{id, status}`; the run continues in the background |
-| `GET /api/v1/evaluations` | Runs, newest first (`?limit=` up to 200) |
-| `GET /api/v1/evaluations/{id}` | Run configuration, status, metrics, quality gate and every example's result |
+| `GET /api/v1/evaluations` | Runs with their quality gate, newest first (`?limit=` up to 200) |
+| `GET /api/v1/evaluations/{id}` | Run configuration, status, metrics, quality gate, its limits and every example's result |
+| `GET /api/v1/evaluations/{id}/comparison?baseline={other id}` | Two runs side by side, with each metric's direction; no deltas across different datasets |
 | `GET /api/v1/evaluations/{id}/report` | Markdown report; `?baseline={other id}` adds a comparison, `?format=csv` returns per-example results |
 | `POST /api/v1/incidents/detect` | One detection pass → `{observed_at, persisted, not_checked, incidents[]}`; see [Incidents](#incidents) |
 | `POST /api/v1/incidents/simulate` | `{"scenario": "model_timeout"}` → 201 with the incidents from a file in `data/incidents/` |

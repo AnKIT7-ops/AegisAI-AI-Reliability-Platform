@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { api } from '../api'
 import { GuidedPath } from '../components/GuidedPath'
 import type { Step } from '../components/GuidedPath'
+import { Readout } from '../components/Metrics'
 import {
   DemoBanner,
   ErrorState,
@@ -9,11 +10,10 @@ import {
   Tag,
   Verdict,
 } from '../components/States'
-import { percent, seconds } from '../format'
+import { measured, percent, seconds } from '../format'
 import type {
   DemoStatus,
   DocumentRecord,
-  EvaluationDetail,
   EvaluationRun,
   Incident,
   Release,
@@ -77,35 +77,6 @@ function Start({ onLoaded }: { onLoaded: () => void }) {
   )
 }
 
-function Readout({
-  label,
-  value,
-  note,
-}: {
-  label: string
-  value: React.ReactNode
-  note?: React.ReactNode
-}) {
-  return (
-    <div className="readout">
-      <dt>{label}</dt>
-      <dd>
-        <span className="readout-value">{value}</span>
-        {note && <span className="readout-note">{note}</span>}
-      </dd>
-    </div>
-  )
-}
-
-function measured(
-  telemetry: Telemetry | null,
-  value: number | null | undefined,
-  format: (value: number) => string,
-): string {
-  if (telemetry === null || telemetry.not_checked.length > 0) return 'Not checked'
-  return value === null || value === undefined ? 'No traffic' : format(value)
-}
-
 // Only what was read: Ollama is not probed, so this never claims the model works.
 function health(telemetry: Telemetry | null): string {
   if (telemetry === null) return 'Not checked'
@@ -117,13 +88,11 @@ function health(telemetry: Telemetry | null): string {
 function Readouts({
   telemetry,
   run,
-  detail,
   open,
   release,
 }: {
   telemetry: Telemetry | null
   run: EvaluationRun | undefined
-  detail: EvaluationDetail | null
   open: Incident[] | null
   release: Release | undefined
 }) {
@@ -139,9 +108,7 @@ function Readouts({
       />
       <Readout
         label="Quality gate"
-        value={
-          detail?.gate ? <Verdict passed={detail.gate.passed} /> : 'No result'
-        }
+        value={run?.gate ? <Verdict passed={run.gate.passed} /> : 'No result'}
         note={demoTag}
       />
       <Readout
@@ -195,7 +162,6 @@ function Content({ onChanged }: { onChanged: () => void }) {
   )
   const releases = useApi<{ releases: Release[] }>('/releases?status=active')
   const run = runs.data?.runs[0]
-  const detail = useApi<EvaluationDetail>(run ? `/evaluations/${run.id}` : null)
 
   const blocking = demo.error ?? runs.error
   if (blocking) return <ErrorState error={blocking} onRetry={onChanged} />
@@ -218,7 +184,6 @@ function Content({ onChanged }: { onChanged: () => void }) {
       <Readouts
         telemetry={telemetry.data}
         run={run}
-        detail={detail.data}
         open={incidents.data?.incidents ?? null}
         release={release}
       />

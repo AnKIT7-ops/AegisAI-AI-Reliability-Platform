@@ -16,19 +16,12 @@ from app.core.errors import ApiError
 from app.core.logs import request_id
 from app.db.models import EvaluationRun, Release, ReleaseEvent
 from app.services.evaluation.report import (
-    LOWER_IS_BETTER,
     GateResult,
+    compare_metrics,
     gate_for_run,
 )
 
 BASELINE_STATUSES = ("active", "superseded")
-# Sizes and costs: they have no better direction.
-NOT_COMPARED = {
-    "examples",
-    "errors",
-    "prompt_tokens_total",
-    "completion_tokens_total",
-}
 
 
 def actor_for(settings: Settings) -> str:
@@ -156,30 +149,10 @@ def compare(candidate: Release, baseline: Release | None) -> dict[str, Any]:
         "baseline_release_id": str(baseline.id),
         "baseline_run_id": str(baseline.evaluation_run_id),
         # Deltas across different datasets would mislead.
-        "metrics": _metric_rows(candidate, baseline) if same_dataset else [],
+        "metrics": (
+            compare_metrics(candidate.metrics, baseline.metrics) if same_dataset else []
+        ),
     }
-
-
-def _metric_rows(candidate: Release, baseline: Release) -> list[dict[str, Any]]:
-    rows = []
-    for name in sorted(candidate.metrics.keys() - NOT_COMPARED):
-        new, old = candidate.metrics[name], baseline.metrics.get(name)
-        if not isinstance(new, int | float) or not isinstance(old, int | float):
-            continue
-        delta = round(new - old, 4)
-        better = delta < 0 if name in LOWER_IS_BETTER else delta > 0
-        rows.append(
-            {
-                "name": name,
-                "candidate": new,
-                "baseline": old,
-                "delta": delta,
-                "direction": "same"
-                if delta == 0
-                else ("improved" if better else "regressed"),
-            }
-        )
-    return rows
 
 
 def _baseline(

@@ -135,7 +135,8 @@ button:disabled {
   cursor: progress;
 }
 
-.button-secondary {
+.button-secondary,
+button.button-outline {
   background: transparent;
   color: var(--accent);
 }
@@ -157,7 +158,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 0.5rem 0.625rem;
   border: 1px solid var(--muted);
@@ -267,6 +269,7 @@ main {
 
 .verdict {
   display: inline-block;
+  white-space: nowrap;
   padding: 0 0.5rem;
   border: 2px solid currentcolor;
   border-radius: var(--radius);
@@ -515,8 +518,210 @@ th {
 td.number,
 th.number {
   text-align: right;
+  white-space: nowrap;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* Evidence: the page's claims, kept apart from what is inferred */
+.notice {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.symptom {
+  font-size: 1.125rem;
+}
+
+.evidence {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.evidence li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.evidence .meta {
+  margin: 0.25rem 0 0;
+}
+
+.inferred {
+  padding: 0.875rem 1rem;
+  border: 1px dashed var(--muted);
+  border-radius: var(--radius);
+}
+
+.failures {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--fail);
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+/* Forms in a row */
+.row-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.row-form > div {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* Metric bars: the line is the limit */
+.metrics {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.125rem 1rem;
+  padding: 0.5rem 0;
+}
+
+.metric-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.metric-bar {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.metric-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.metric-limit {
+  position: absolute;
+  top: -0.1875rem;
+  bottom: -0.1875rem;
+  width: 2px;
+  background: var(--ink);
+}
+
+.metric-missed .metric-value strong {
+  color: var(--fail);
+}
+
+.metric-missed .metric-fill {
+  background: var(--fail);
+}
+
+tr.delta-regressed td:last-child {
+  color: var(--fail);
+  font-weight: 600;
+}
+
+tr.delta-improved td:last-child {
+  color: var(--pass);
+}
+
+/* Examples */
+.examples {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.examples li {
+  border-bottom: 1px solid var(--line);
+}
+
+.examples summary {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.5rem 0.25rem;
+  cursor: pointer;
+}
+
+.example-outcome {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+}
+
+.examples details .answer {
+  margin: 0.25rem 0.25rem 0.5rem;
+}
+
+.examples details .meta {
+  margin: 0 0.25rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+/* Releases */
+.lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  font: 500 0.875rem/1.5 var(--mono);
+}
+
+.lifecycle li:not(:last-child)::after {
+  content: ' \2192';
+  color: var(--muted);
+}
+
+.confirm {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.history {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.history li {
+  margin-bottom: 0.375rem;
+  overflow-wrap: anywhere;
+}
+
+.result h3 {
+  margin-top: 1.25rem;
+}
+
+.result section {
+  margin-top: 0;
+}
+
+.result input,
+.result select {
+  margin-bottom: 0.625rem;
 }
 
 /* Sign-in */

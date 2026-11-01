@@ -24,7 +24,9 @@ from app.services.evaluation.jobs import (
 )
 from app.services.evaluation.report import (
     GateResult,
+    compare_metrics,
     gate_for_run,
+    load_thresholds,
     markdown_report,
     results_csv,
 )
@@ -68,6 +70,20 @@ def _gate(run: EvaluationRun, settings: Settings) -> GateResult | None:
     )
 
 
+def _limits(run: EvaluationRun, settings: Settings) -> dict[str, float]:
+    """The gate's limits, for display. Unreadable limits are reported by the gate."""
+    try:
+        thresholds = load_thresholds(settings.eval_dir, run.dataset_version)
+    except (OSError, ValueError):
+        return {}
+    return thresholds.limits if thresholds else {}
+
+
+def _with_gate(run: EvaluationRun, settings: Settings) -> dict[str, Any]:
+    gate = _gate(run, settings)
+    return run_to_dict(run) | {"gate": gate.model_dump() if gate else None}
+
+
 @router.post("/run", status_code=202)
 def start_run(
     req: RunRequest,
@@ -104,14 +120,16 @@ def start_run(
 
 @router.get("")
 def list_runs(
-    sessions: Sessions, limit: Annotated[int, Query(ge=1, le=200)] = 50
+    sessions: Sessions,
+    settings: SettingsDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Newest first, without per-example results."""
+    """Newest first, with the gate but without per-example results."""
     with sessions() as session:
         runs = session.scalars(
             select(EvaluationRun).order_by(EvaluationRun.created_at.desc()).limit(limit)
         ).all()
-        return {"runs": [run_to_dict(r) for r in runs]}
+        return {"runs": [_with_gate(r, settings) for r in runs]}
 
 
 @router.get("/{run_id}")
@@ -121,10 +139,30 @@ def get_run(
     """The run, its metrics, the quality gate and every example's result."""
     with sessions() as session:
         run = _get_run(session, run_id)
-        gate = _gate(run, settings)
-        return run_to_dict(run) | {
-            "gate": gate.model_dump() if gate else None,
+        return _with_gate(run, settings) | {
+            "limits": _limits(run, settings),
             "results": [result_to_dict(r) for r in run.results],
+        }
+
+
+@router.get("/{run_id}/comparison")
+def compare_runs(
+    run_id: uuid.UUID, baseline: uuid.UUID, sessions: Sessions
+) -> dict[str, Any]:
+    """Two runs side by side. Deltas only when both used the same dataset."""
+    with sessions() as session:
+        run = _get_run(session, run_id)
+        base = _get_run(session, baseline)
+        same_dataset = run.dataset_checksum == base.dataset_checksum
+        return {
+            "status": "comparable" if same_dataset else "dataset_changed",
+            "run": run_to_dict(run),
+            "baseline": run_to_dict(base),
+            "metrics": (
+                compare_metrics(run.metrics or {}, base.metrics or {})
+                if same_dataset
+                else []
+            ),
         }
 
 

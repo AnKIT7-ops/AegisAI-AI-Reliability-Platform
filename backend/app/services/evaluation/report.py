@@ -18,6 +18,40 @@ LOWER_IS_BETTER = {
 }
 
 
+# Sizes and costs: they have no better direction.
+NOT_COMPARED = {
+    "examples",
+    "errors",
+    "prompt_tokens_total",
+    "completion_tokens_total",
+}
+
+
+def compare_metrics(new: dict[str, Any], old: dict[str, Any]) -> list[dict[str, Any]]:
+    """One row per metric measured in both, saying which way it moved."""
+    rows = []
+    for name in sorted(new.keys() - NOT_COMPARED):
+        candidate, baseline = new[name], old.get(name)
+        if not isinstance(candidate, int | float) or not isinstance(
+            baseline, int | float
+        ):
+            continue
+        delta = round(candidate - baseline, 4)
+        better = delta < 0 if name in LOWER_IS_BETTER else delta > 0
+        rows.append(
+            {
+                "name": name,
+                "candidate": candidate,
+                "baseline": baseline,
+                "delta": delta,
+                "direction": "same"
+                if delta == 0
+                else ("improved" if better else "regressed"),
+            }
+        )
+    return rows
+
+
 class Thresholds(BaseModel):
     dataset_version: str
     # The dataset file the limits were measured on; any edit changes it.

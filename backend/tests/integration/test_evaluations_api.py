@@ -15,7 +15,10 @@ from app.core.config import Settings
 from app.db.models import EvaluationRun
 from app.main import app
 from app.services.evaluation.dataset import load_dataset
+from app.services.evaluation.report import Thresholds
 from app.services.llm.base import Generation, ModelUnavailable
+
+RUNS = "/api/v1/evaluations"
 
 
 def start(api: TestClient, **body: object) -> str:
@@ -269,3 +272,132 @@ def test_execute_run_never_raises_when_the_failure_cannot_be_recorded() -> None:
         sessions,
     )
     assert session.commit.call_count >= 2  # the run, then the failed-status attempt
+
+
+def stored_run(sessions: sessionmaker[Session], **kw: Any) -> str:
+    fields: dict[str, Any] = dict(
+        status="done",
+        label="r",
+        dataset_version="v1",
+        dataset_checksum="abc",
+        prompt_version="2",
+        chat_model="m",
+        embed_model="e",
+        top_k=4,
+        min_score=0.7,
+        config={},
+        metrics={"recall_at_k": 0.9, "latency_ms_p95": 1000, "examples": 3},
+    )
+    with sessions() as session:
+        run = EvaluationRun(**(fields | kw))
+        session.add(run)
+        session.commit()
+        return str(run.id)
+
+
+def write_limits(settings: Settings) -> None:
+    (settings.eval_dir / "v1.thresholds.json").write_text(
+        Thresholds(
+            dataset_version="v1",
+            dataset_checksum="abc",
+            basis="test",
+            limits={"recall_at_k": 0.8},
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+
+
+def test_list_carries_the_gate(
+    api: TestClient, sessions: sessionmaker[Session], settings: Settings
+) -> None:
+    write_limits(settings)
+    stored_run(sessions)
+    assert api.get(RUNS).json()["runs"][0]["gate"] == {"passed": True, "failures": []}
+
+
+def test_list_gate_is_null_without_thresholds(
+    api: TestClient, sessions: sessionmaker[Session]
+) -> None:
+    stored_run(sessions)
+    assert api.get(RUNS).json()["runs"][0]["gate"] is None
+
+
+def test_list_gate_is_null_for_an_unfinished_run(
+    api: TestClient, sessions: sessionmaker[Session], settings: Settings
+) -> None:
+    write_limits(settings)
+    stored_run(sessions, status="failed", metrics=None)
+    assert api.get(RUNS).json()["runs"][0]["gate"] is None
+
+
+def test_detail_carries_the_limits(
+    api: TestClient, sessions: sessionmaker[Session], settings: Settings
+) -> None:
+    write_limits(settings)
+    run_id = stored_run(sessions)
+    assert api.get(f"{RUNS}/{run_id}").json()["limits"] == {"recall_at_k": 0.8}
+
+
+def test_detail_limits_are_empty_without_thresholds(
+    api: TestClient, sessions: sessionmaker[Session]
+) -> None:
+    run_id = stored_run(sessions)
+    assert api.get(f"{RUNS}/{run_id}").json()["limits"] == {}
+
+
+def test_detail_limits_are_empty_when_the_file_is_invalid(
+    api: TestClient, sessions: sessionmaker[Session], settings: Settings
+) -> None:
+    (settings.eval_dir / "v1.thresholds.json").write_text("{", encoding="utf-8")
+    run_id = stored_run(sessions)
+    body = api.get(f"{RUNS}/{run_id}").json()
+    assert body["limits"] == {}
+    assert body["gate"]["passed"] is False
+
+
+def test_comparison_says_which_way_metrics_moved(
+    api: TestClient, sessions: sessionmaker[Session]
+) -> None:
+    base = stored_run(sessions, label="before")
+    run = stored_run(
+        sessions,
+        label="after",
+        metrics={"recall_at_k": 0.95, "latency_ms_p95": 1200, "examples": 3},
+    )
+    body = api.get(f"{RUNS}/{run}/comparison?baseline={base}").json()
+    assert body["status"] == "comparable"
+    assert body["run"]["label"] == "after"
+    assert body["baseline"]["label"] == "before"
+    rows = {m["name"]: m for m in body["metrics"]}
+    assert set(rows) == {"recall_at_k", "latency_ms_p95"}
+    assert rows["recall_at_k"]["direction"] == "improved"
+    assert rows["latency_ms_p95"]["direction"] == "regressed"
+    assert rows["recall_at_k"]["delta"] == 0.05
+
+
+def test_comparison_across_datasets_lists_no_deltas(
+    api: TestClient, sessions: sessionmaker[Session]
+) -> None:
+    base = stored_run(sessions, dataset_checksum="other")
+    run = stored_run(sessions)
+    body = api.get(f"{RUNS}/{run}/comparison?baseline={base}").json()
+    assert (body["status"], body["metrics"]) == ("dataset_changed", [])
+
+
+def test_comparison_tolerates_a_run_without_metrics(
+    api: TestClient, sessions: sessionmaker[Session]
+) -> None:
+    base = stored_run(sessions, status="failed", metrics=None)
+    run = stored_run(sessions)
+    r = api.get(f"{RUNS}/{run}/comparison?baseline={base}")
+    assert (r.status_code, r.json()["metrics"]) == (200, [])
+
+
+def test_comparison_needs_both_runs(
+    api: TestClient, sessions: sessionmaker[Session]
+) -> None:
+    run = stored_run(sessions)
+    assert (
+        api.get(f"{RUNS}/{run}/comparison?baseline={uuid.uuid4()}").status_code == 404
+    )
+    assert api.get(f"{RUNS}/{run}/comparison").status_code == 422

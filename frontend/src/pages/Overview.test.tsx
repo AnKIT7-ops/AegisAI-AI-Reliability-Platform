@@ -18,12 +18,12 @@ const RUN = {
   status: 'done',
   source: 'demo',
   metrics: { recall_at_k: 0.9804 },
+  gate: { passed: true, failures: [] },
 }
 const LOADED = {
   ...EMPTY,
   'GET /demo': DEMO,
   'GET /evaluations?limit=1': { runs: [RUN] },
-  'GET /evaluations/run-1': { ...RUN, gate: { passed: true, failures: [] } },
   'GET /incidents?status=open&limit=5': {
     incidents: [
       {
@@ -76,7 +76,6 @@ describe('Overview', () => {
       'GET /demo': () => new Response(JSON.stringify(loaded ? DEMO : NO_DEMO)),
       'GET /evaluations?limit=1': () =>
         new Response(JSON.stringify({ runs: loaded ? [RUN] : [] })),
-      'GET /evaluations/run-1': LOADED['GET /evaluations/run-1'],
     })
     render(<Overview />)
     await userEvent.click(
