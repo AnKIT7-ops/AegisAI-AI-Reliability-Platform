@@ -95,6 +95,7 @@ def run_to_dict(run: EvaluationRun) -> dict[str, Any]:
         "id": str(run.id),
         "label": run.label,
         "status": run.status,
+        "source": run.source,
         "dataset_version": run.dataset_version,
         "dataset_checksum": run.dataset_checksum,
         "prompt_version": run.prompt_version,
