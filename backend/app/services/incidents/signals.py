@@ -89,7 +89,8 @@ def _run_signal(run: EvaluationRun, failures: list[str]) -> RunSignal:
 def _runs(session: Session, settings: Settings) -> dict[str, RunSignal]:
     runs = session.scalars(
         select(EvaluationRun)
-        .where(EvaluationRun.status == "done")
+        # Demo runs include a deliberate failure, which is not an incident.
+        .where(EvaluationRun.status == "done", EvaluationRun.source == "live")
         .order_by(EvaluationRun.finished_at.desc())
         .limit(RUN_HISTORY)
     ).all()

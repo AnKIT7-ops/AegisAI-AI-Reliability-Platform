@@ -65,11 +65,16 @@ def use(prom: Prometheus) -> None:
 
 
 def add_run(
-    sessions: sessionmaker[Session], settings: Settings, recall: float, top_k: int = 4
+    sessions: sessionmaker[Session],
+    settings: Settings,
+    recall: float,
+    top_k: int = 4,
+    source: str = "live",
 ) -> EvaluationRun:
     with sessions() as session:
         run = EvaluationRun(
             status="done",
+            source=source,
             label="x",
             dataset_version="v1",
             dataset_checksum="abc",
@@ -328,3 +333,12 @@ def test_buffered_failures_hold_no_free_text(api: TestClient) -> None:
     assert api.post("/api/v1/chat", json={"question": "hi"}).status_code == 503
     assert RECENT_FAILURES.events
     assert "hunter2" not in str(list(RECENT_FAILURES.events))
+
+
+def test_a_failing_demo_run_raises_no_incident(
+    api: TestClient, sessions: sessionmaker[Session], settings: Settings
+) -> None:
+    thresholds(settings)
+    add_run(sessions, settings, recall=0.2, source="demo")
+    use(prometheus())
+    assert api.post(DETECT).json()["incidents"] == []

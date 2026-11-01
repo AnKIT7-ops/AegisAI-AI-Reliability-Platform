@@ -67,6 +67,7 @@ jobs:
         run: |
           uv run alembic upgrade head
           uv run alembic check
+          uv run pytest -q tests/postgres
           uv run alembic downgrade base
       # A gate failure also fails the evaluation tests; run anyway for the report.
       - name: Evaluation quality gate
