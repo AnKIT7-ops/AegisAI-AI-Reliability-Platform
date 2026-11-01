@@ -1,4 +1,4 @@
-# promtool test rules alerts.test.yml (see README "Alerts"). Each case feeds
+# promtool test rules alerts.test.yml (see docs/observability.md). Each case feeds
 # synthetic series and states which alerts must fire.
 rule_files:
   - alerts.yml

@@ -1,5 +1,5 @@
-# Alert rules. Thresholds are set against the measured baseline (README
-# "Evaluation" and "Prometheus metrics"); each alert links to a runbook.
+# Alert rules. Thresholds are set against the measured baseline (docs/evaluation.md
+# and docs/observability.md); each alert links to a runbook.
 groups:
   - name: aegis
     rules:

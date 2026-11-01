@@ -4,7 +4,7 @@ import { SESSION_FILE } from './e2e/stack.ts'
 const signedIn = { storageState: SESSION_FILE }
 
 // One stack, shared and written to in order, so the projects run as a chain.
-// The first visit needs an empty database: see "Browser tests" in the README.
+// The first visit needs an empty database: see docs/development.md.
 export default defineConfig({
   testDir: 'e2e',
   workers: 1,

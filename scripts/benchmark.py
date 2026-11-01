@@ -1,7 +1,7 @@
 """Measure a running stack and save the evidence.
 
 Needs Ollama running, sign-in off and the sample documents ingested. See
-"Benchmarks" in the README. Standard library only, so it needs no setup.
+docs/benchmarks.md. Standard library only, so it needs no setup.
 """
 
 import argparse
