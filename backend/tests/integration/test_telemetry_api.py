@@ -71,6 +71,18 @@ def test_no_traffic_is_null_not_zero(api: TestClient) -> None:
         assert body[name] is None
 
 
+def test_requests_without_errors_are_zero_not_no_traffic(api: TestClient) -> None:
+    use(prometheus(series={ERROR_RATIO: [], REQUEST_RATE: value(0.02)}))
+    body = api.get(TELEMETRY).json()
+    assert body["request_rate_per_s"] == 0.02
+    assert body["error_ratio"] == 0
+
+
+def test_a_stopped_stream_of_requests_stays_no_traffic(api: TestClient) -> None:
+    use(prometheus(series={ERROR_RATIO: [], REQUEST_RATE: value(0)}))
+    assert api.get(TELEMETRY).json()["error_ratio"] is None
+
+
 def test_prometheus_down_reports_not_checked(api: TestClient) -> None:
     use(down())
     r = api.get(TELEMETRY)

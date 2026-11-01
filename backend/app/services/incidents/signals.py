@@ -155,6 +155,10 @@ def telemetry(
     try:
         metrics = _metrics(prometheus)
         metrics["request_rate_per_s"] = prometheus.value(REQUEST_RATE)
+        # A 5xx series only exists once one has happened, so requests with no
+        # ratio means no errors, not no traffic.
+        if metrics["error_ratio"] is None and metrics["request_rate_per_s"]:
+            metrics["error_ratio"] = 0.0
     except PROMETHEUS_ERRORS:
         metrics = {}
         not_checked = ["alerts", "metrics"]
