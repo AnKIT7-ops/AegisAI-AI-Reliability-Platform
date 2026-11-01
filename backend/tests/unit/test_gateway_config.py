@@ -81,6 +81,10 @@ def test_backend_sees_the_real_client_and_host() -> None:
     assert "proxy_set_header X-Real-IP $remote_addr;" in server_level
 
 
+def test_ui_is_revalidated_after_an_upgrade() -> None:
+    assert 'Cache-Control "no-cache"' in location("/")
+
+
 def test_ui_responses_carry_security_headers() -> None:
     block = location("/")
     assert "Content-Security-Policy \"default-src 'self'\"" in block
