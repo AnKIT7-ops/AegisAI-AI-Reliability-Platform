@@ -10,6 +10,14 @@ export function parseRoute(hash: string): Route {
   return { path: path || '/', query: new URLSearchParams(query) }
 }
 
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Ids from the URL go into API paths, so a crafted link must not change the path.
+export function isId(value: string | null | undefined): value is string {
+  return typeof value === 'string' && UUID.test(value)
+}
+
 function subscribe(onChange: () => void): () => void {
   window.addEventListener('hashchange', onChange)
   return () => window.removeEventListener('hashchange', onChange)

@@ -144,4 +144,14 @@ describe('App', () => {
     expect(link.getAttribute('aria-current')).toBe('page')
     await waitFor(() => expect(document.activeElement?.id).toBe('main'))
   })
+
+  it('does not open a detail page for an id that is not a uuid', async () => {
+    window.location.hash = '#/incidents/..%2Fdemo'
+    const calls = stubApi({ 'GET /auth/session': OFF })
+    render(<App />)
+    expect(await screen.findByText('That page does not exist')).toBeTruthy()
+    expect(calls.some((c) => c.key.includes('incidents'))).toBe(false)
+    window.location.hash = '#/evaluations/nope'
+    expect(await screen.findByText('That page does not exist')).toBeTruthy()
+  })
 })

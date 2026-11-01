@@ -49,6 +49,51 @@ test('nginx hides the backend', async ({ request }) => {
   }
 })
 
+test('a burst on a costly route is refused with a clear error', async ({
+  request,
+}) => {
+  const replies = await Promise.all(
+    Array.from({ length: 80 }, () =>
+      request.post('/api/v1/chat', { data: { question: 'burst' } }),
+    ),
+  )
+  const refused = replies.filter((reply) => reply.status() === 429)
+  expect(refused.length).toBeGreaterThan(0)
+  expect((await refused[0].json()).error.code).toBe('rate_limited')
+  expect(refused[0].headers()['retry-after']).toBe('1')
+})
+
+test('containers run without extra privileges', () => {
+  const ids = execFileSync(
+    'docker',
+    ['ps', '-q', '--filter', 'label=com.docker.compose.project=aegis-e2e'],
+    { encoding: 'utf8' },
+  )
+    .trim()
+    .split(/\s+/)
+  const settings = execFileSync(
+    'docker',
+    [
+      'inspect',
+      '--format',
+      '{{index .Config.Labels "com.docker.compose.service"}} {{.HostConfig.ReadonlyRootfs}} {{.HostConfig.CapDrop}} {{.HostConfig.SecurityOpt}}',
+      ...ids,
+    ],
+    { encoding: 'utf8' },
+  )
+    .trim()
+    .split('\n')
+    .sort()
+  const hardened = '[ALL] [no-new-privileges:true]'
+  expect(settings).toEqual([
+    `backend true ${hardened}`,
+    `frontend true ${hardened}`,
+    `grafana false ${hardened}`,
+    'postgres false [] [no-new-privileges:true]',
+    `prometheus true ${hardened}`,
+  ])
+})
+
 test('only nginx is published, on loopback', () => {
   const lines = execFileSync(
     'docker',

@@ -1,5 +1,6 @@
 import { MetricDeltas } from '../components/Metrics'
 import { Empty, ErrorState, Loading, Tag } from '../components/States'
+import { isId } from '../route'
 import type { EvaluationRun, RunComparison } from '../types'
 import { useApi } from '../useApi'
 
@@ -24,10 +25,11 @@ function Heading({ run }: { run: EvaluationRun }) {
 export default function Compare({ query }: { query: URLSearchParams }) {
   const a = query.get('a')
   const b = query.get('b')
+  const chosen = isId(a) && isId(b)
   const comparison = useApi<RunComparison>(
-    a && b ? `/evaluations/${b}/comparison?baseline=${a}` : null,
+    chosen ? `/evaluations/${b}/comparison?baseline=${a}` : null,
   )
-  if (!a || !b) {
+  if (!chosen) {
     return (
       <>
         <h1>Compare runs</h1>

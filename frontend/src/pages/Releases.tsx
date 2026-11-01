@@ -11,7 +11,7 @@ import {
   Verdict,
 } from '../components/States'
 import { when, words } from '../format'
-import { useRoute } from '../route'
+import { isId, useRoute } from '../route'
 import type { EvaluationRun, Release } from '../types'
 import { useAction, useApi } from '../useApi'
 
@@ -354,7 +354,8 @@ function ReleaseDetail({
 export default function Releases() {
   const { query } = useRoute()
   const releases = useApi<{ releases: Release[] }>('/releases?limit=50')
-  const selected = query.get('id')
+  const requested = query.get('id')
+  const selected = isId(requested) ? requested : null
   const list = releases.data?.releases ?? []
 
   return (

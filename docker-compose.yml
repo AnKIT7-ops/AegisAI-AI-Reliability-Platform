@@ -1,8 +1,14 @@
 # nginx (frontend) is the only published service, on 127.0.0.1 unless FRONTEND_BIND
 # says otherwise. Everything else is reachable only on the Docker network.
+x-hardened: &hardened
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+
 services:
   postgres:
     image: postgres:18.6-alpine
+    # Starts as root to set up its data directory, so it keeps its capabilities.
+    security_opt: ["no-new-privileges:true"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
@@ -21,7 +27,10 @@ services:
           memory: 512m
 
   backend:
+    <<: *hardened
     build: ./backend
+    read_only: true
+    tmpfs: [/tmp]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       # Ollama runs on the host, bound to 127.0.0.1; Docker Desktop forwards
@@ -71,7 +80,10 @@ services:
           memory: 512m
 
   frontend:
+    <<: *hardened
     build: ./frontend
+    read_only: true
+    tmpfs: [/tmp]
     ports:
       - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
     depends_on:
@@ -83,7 +95,9 @@ services:
           memory: 128m
 
   prometheus:
+    <<: *hardened
     image: prom/prometheus:v3.15.1
+    read_only: true
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -108,6 +122,7 @@ services:
           memory: 256m
 
   grafana:
+    <<: *hardened
     image: grafana/grafana:13.2.5
     environment:
       GF_SECURITY_ADMIN_USER: admin
