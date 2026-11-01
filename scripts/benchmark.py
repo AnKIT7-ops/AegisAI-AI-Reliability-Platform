@@ -5,6 +5,7 @@ Needs Ollama running, sign-in off and the sample documents ingested. See
 """
 
 import argparse
+import http.client
 import json
 import math
 import platform
@@ -27,6 +28,15 @@ CHAT_REQUESTS = 40
 READ_REQUESTS = 200
 SAMPLE_EVERY_S = 5.0
 EVALUATION_LIMIT_S = 900
+# Stands in for the status of a 200 whose answer is not the kind expected.
+WRONG_OUTCOME = -1
+MIB_PER_UNIT = {
+    "B": 1 / 1024**2,
+    "KiB": 1 / 1024,
+    "MiB": 1.0,
+    "GiB": 1024.0,
+    "TiB": 1024.0**2,
+}
 
 
 def percentile(values: list[float], p: float) -> float | None:
@@ -43,13 +53,15 @@ def summarize(
     """Latency covers successful requests only; the other outcomes are counted."""
     ok = [ms for status, ms in results if status == 200]
     limited = sum(status == 429 for status, _ in results)
+    wrong = sum(status == WRONG_OUTCOME for status, _ in results)
     return {
         "scenario": name,
         "concurrency": concurrency,
         "requests": len(results),
         "ok": len(ok),
+        "wrong_outcome": wrong,
         "rate_limited": limited,
-        "failed": len(results) - len(ok) - limited,
+        "failed": len(results) - len(ok) - limited - wrong,
         "failure_rate": round((len(results) - len(ok)) / len(results), 4),
         "wall_s": round(wall_s, 2),
         "throughput_per_s": round(len(ok) / wall_s, 2),
@@ -61,21 +73,33 @@ def summarize(
     }
 
 
-def call(url: str, body: dict[str, Any] | None = None) -> tuple[int, float]:
-    """(status, milliseconds); status 0 means no response."""
+def call(url: str, body: dict[str, Any] | None = None) -> tuple[int, float, bytes]:
+    """(status, milliseconds, reply); status 0 means no complete response."""
     data = None if body is None else json.dumps(body).encode()
     request = urllib.request.Request(url, data=data)
     request.add_header("Content-Type", "application/json")
+    payload = b""
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=180) as reply:
-            reply.read()
+            payload = reply.read()
             status = reply.status
     except urllib.error.HTTPError as error:
         status = error.code
-    except OSError:
+    except (OSError, http.client.HTTPException):
         status = 0
-    return status, round((time.perf_counter() - started) * 1000, 1)
+    return status, round((time.perf_counter() - started) * 1000, 1), payload
+
+
+def outcome(status: int, payload: bytes, expect_sources: bool | None) -> int:
+    """A 200 with the wrong kind of answer must not pass as a success."""
+    if status != 200 or expect_sources is None:
+        return status
+    try:
+        has_sources = bool(json.loads(payload)["sources"])
+    except (ValueError, KeyError, TypeError):
+        return WRONG_OUTCOME
+    return status if has_sources == expect_sources else WRONG_OUTCOME
 
 
 def read_json(url: str, body: dict[str, Any] | None = None) -> Any:
@@ -92,11 +116,12 @@ def run(
     bodies: list[dict[str, Any] | None],
     concurrency: int,
     pace_s: float = 0.0,
+    expect_sources: bool | None = None,
 ) -> dict[str, Any]:
     def one(body: dict[str, Any] | None) -> tuple[int, float]:
-        result = call(url, body)
+        status, ms, payload = call(url, body)
         time.sleep(pace_s)
-        return result
+        return outcome(status, payload, expect_sources), ms
 
     started = time.perf_counter()
     with ThreadPoolExecutor(concurrency) as pool:
@@ -104,18 +129,18 @@ def run(
     summary = summarize(name, concurrency, results, time.perf_counter() - started)
     print(
         f"{name} x{concurrency}: {summary['ok']}/{summary['requests']} ok, "
+        f"{summary['wrong_outcome']} wrong outcome, "
         f"p50 {summary['p50_ms']} ms, p95 {summary['p95_ms']} ms"
     )
     return summary
 
 
 def to_mib(text: str) -> float:
-    """'123.4MiB' or '1.2GiB' from docker stats."""
-    match = re.match(r"([\d.]+)(\w+)", text)
-    if match is None:
-        return 0.0
-    factor = {"KiB": 1 / 1024, "MiB": 1.0, "GiB": 1024.0}.get(match[2], 0.0)
-    return float(match[1]) * factor
+    """'123.4MiB' or '1.2GiB' from docker stats. Raises on anything else."""
+    match = re.fullmatch(r"([\d.]+)(\w+)", text)
+    if match is None or match[2] not in MIB_PER_UNIT:
+        raise ValueError(f"unknown memory value: {text!r}")
+    return float(match[1]) * MIB_PER_UNIT[match[2]]
 
 
 def output(*command: str) -> str:
@@ -136,10 +161,11 @@ class Peaks:
         self.containers: dict[str, dict[str, float]] = {}
         self.gpu_memory_mib = 0.0
         self.samples = 0
+        self.skipped = 0
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
 
-    def _sample(self) -> None:
+    def _services(self) -> dict[str, str]:
         names = output(
             "docker",
             "ps",
@@ -148,7 +174,12 @@ class Peaks:
             "--format",
             '{{.Label "com.docker.compose.service"}}={{.Names}}',
         )
-        services = dict(line.split("=", 1) for line in names.splitlines())
+        return dict(line.split("=", 1) for line in names.splitlines())
+
+    def _sample(self) -> None:
+        services = self._services()
+        if not services:
+            raise ValueError("no containers")
         stats = output(
             "docker",
             "stats",
@@ -174,11 +205,20 @@ class Peaks:
             self.gpu_memory_mib = max(self.gpu_memory_mib, float(gpu.splitlines()[0]))
         self.samples += 1
 
+    def _try_sample(self) -> None:
+        """A bad sample is counted, so sampling cannot stop without anyone seeing."""
+        try:
+            self._sample()
+        except ValueError:
+            self.skipped += 1
+
     def _loop(self) -> None:
         while not self._stop.wait(SAMPLE_EVERY_S):
-            self._sample()
+            self._try_sample()
 
     def __enter__(self) -> "Peaks":
+        if not self._services():
+            raise SystemExit(f"No running containers in project {self.project!r}.")
         self._thread.start()
         return self
 
@@ -211,7 +251,8 @@ def report(results: dict[str, Any]) -> str:
     lines = [
         f"# Benchmark {results['date']}",
         "",
-        f"Commit `{results['commit']}`. Raw values are in `results.json`.",
+        f"Commit `{results['commit']}`. Took {results['duration_s']} s. Raw values "
+        "are in `results.json`.",
         "",
         "| Setting | Value |",
         "|---|---|",
@@ -231,16 +272,19 @@ def report(results: dict[str, Any]) -> str:
         "## Latency",
         "",
         "Client side, through nginx. Percentiles are nearest rank over successful "
-        "requests.",
+        "requests. Wrong means HTTP 200 with the wrong kind of reply: a refusal in "
+        "the Answered rows, or an answer in the Refused row. Those requests are "
+        "left out of the latency figures.",
         "",
-        "| Scenario | Concurrency | Requests | OK | Failed | 429 | Requests/s "
-        "| p50 ms | p95 ms | Max ms |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| Scenario | Concurrency | Requests | OK | Wrong | Failed | 429 "
+        "| Requests/s | p50 ms | p95 ms | Max ms |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in results["scenarios"]:
         lines.append(
             f"| {row['scenario']} | {row['concurrency']} | {row['requests']} "
-            f"| {row['ok']} | {row['failed']} | {row['rate_limited']} "
+            f"| {row['ok']} | {row['wrong_outcome']} | {row['failed']} "
+            f"| {row['rate_limited']} "
             f"| {row['throughput_per_s']} | {milliseconds(row['p50_ms'])} "
             f"| {milliseconds(row['p95_ms'])} | {milliseconds(row['max_ms'])} |"
         )
@@ -260,8 +304,9 @@ def report(results: dict[str, Any]) -> str:
         "",
         "## Peak resource use",
         "",
-        f"Highest of {peaks['samples']} samples, one about every "
-        f"{SAMPLE_EVERY_S:.0f} s, so short spikes can be missed. GPU memory is the "
+        f"Highest of {peaks['samples']} samples ({peaks['skipped']} skipped), one "
+        f"about every {SAMPLE_EVERY_S:.0f} s, so short spikes can be missed. "
+        "GPU memory is the "
         f"whole GPU: {peaks['gpu_memory_mib']:.0f} MiB.",
         "",
         "| Service | CPU % | Memory MiB |",
@@ -302,6 +347,7 @@ def main() -> None:
     ]
     refused: list[dict[str, Any] | None] = [{"question": OUT_OF_SCOPE}] * CHAT_REQUESTS
 
+    began = time.perf_counter()
     print("warming the model; this request is not measured")
     call(f"{api}/chat", {"question": questions[0]})
 
@@ -318,16 +364,32 @@ def main() -> None:
             )
         # Paced under the rate limit: this measures latency, not the limit.
         scenarios.append(
-            run("Refused, no model", f"{api}/chat", refused, 1, pace_s=0.6)
+            run(
+                "Refused, no chat model",
+                f"{api}/chat",
+                refused,
+                1,
+                pace_s=0.6,
+                expect_sources=False,
+            )
         )
         for concurrency in CONCURRENCY:
-            scenarios.append(run("Answered", f"{api}/chat", answered, concurrency))
+            scenarios.append(
+                run(
+                    "Answered",
+                    f"{api}/chat",
+                    answered,
+                    concurrency,
+                    expect_sources=True,
+                )
+            )
         evaluation = evaluate(api)
 
     results = {
         "date": datetime.now(UTC).strftime("%Y-%m-%d"),
         "commit": output("git", "-C", str(REPO), "rev-parse", "--short", "HEAD"),
         "hardware": args.hardware,
+        "duration_s": round(time.perf_counter() - began),
         "environment": {
             "os": platform.platform(),
             "docker": output("docker", "version", "--format", "{{.Server.Version}}"),
@@ -338,6 +400,7 @@ def main() -> None:
         "evaluation": evaluation,
         "peaks": {
             "samples": peaks.samples,
+            "skipped": peaks.skipped,
             "containers": peaks.containers,
             "gpu_memory_mib": peaks.gpu_memory_mib,
         },
