@@ -13,7 +13,7 @@ A local-first platform for building, evaluating, observing and operating a RAG a
 | 4 | CI/CD with AI quality gates | Done |
 | 5 | Incident detection and runbook-driven diagnosis | Done |
 | 6 | Operations dashboard and release workflow | Done |
-| 7 | Hardening and benchmarks | In progress |
+| 7 | Hardening and benchmarks | Done |
 
 ## Architecture
 
@@ -720,3 +720,7 @@ monitoring/ Prometheus configuration and alert rules, Grafana provisioning and d
 docs/       runbooks/ for each alert; benchmarks/ saved results; images/ screenshots
 scripts/    Ingest, demo export and benchmark helpers
 ```
+
+## License
+
+The code is under the [MIT License](LICENSE). The sample documents in `data/sample_docs/` keep their own licenses, listed in [ATTRIBUTION.md](data/sample_docs/ATTRIBUTION.md), and that attribution also applies to the document text in `data/demo/`.
