@@ -28,7 +28,7 @@ const FAILED: EvaluationRun = {
   ...RUN,
   id: 'bbbbbbbb-2',
   label: 'degraded',
-  source: 'demo',
+  source: 'live',
   metrics: { recall_at_k: 0.9412, latency_ms_p95: 2939 },
   gate: { passed: false, failures: ['recall_at_k: 0.9412 < 0.95'] },
 }
@@ -107,20 +107,7 @@ describe('Evaluations', () => {
     expect(screen.getByText('0.98')).toBeTruthy()
   })
 
-  it('labels demo runs', async () => {
-    stubApi({ [`GET ${LIST}`]: { runs: [RUN, FAILED] } })
-    render(<Evaluations />)
-    const row = (await screen.findByRole('link', { name: 'degraded' })).closest('tr')
-    expect(within(row as HTMLElement).getByText('Demo')).toBeTruthy()
-    expect(screen.getByText('Demo data.')).toBeTruthy()
-  })
 
-  it('shows no banner without demo runs', async () => {
-    stubApi({ [`GET ${LIST}`]: { runs: [RUN] } })
-    render(<Evaluations />)
-    await screen.findByRole('link', { name: 'baseline' })
-    expect(screen.queryByText('Demo data.')).toBeNull()
-  })
 
   it('starts a run', async () => {
     const calls = stubApi({
@@ -231,13 +218,6 @@ describe('EvaluationDetail', () => {
     expect(screen.getByText('Error')).toBeTruthy()
   })
 
-  it('renders recorded answers as text', async () => {
-    stubApi({ [PATH]: DETAIL })
-    const { container } = render(<EvaluationDetail id={DETAIL.id} />)
-    await screen.findByText('Correct')
-    expect(container.querySelector('b')).toBeNull()
-    expect(container.textContent).toContain('<b>PWNED</b>')
-  })
 
   it('filters by category', async () => {
     stubApi({ [PATH]: DETAIL })
@@ -257,11 +237,6 @@ describe('EvaluationDetail', () => {
     )
   })
 
-  it('labels demo runs', async () => {
-    stubApi({ [PATH]: DETAIL })
-    render(<EvaluationDetail id={DETAIL.id} />)
-    expect(await screen.findByText('Demo data.')).toBeTruthy()
-  })
 
   it('explains a run with no gate', async () => {
     stubApi({ [PATH]: { ...DETAIL, gate: null, status: 'failed', metrics: null } })

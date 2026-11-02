@@ -8,7 +8,6 @@ test('no route answers without a session', async ({ request }) => {
     '/api/v1/releases',
     '/api/v1/incidents',
     '/api/v1/telemetry',
-    '/api/v1/demo',
   ]) {
     expect((await request.get(path)).status(), path).toBe(401)
   }

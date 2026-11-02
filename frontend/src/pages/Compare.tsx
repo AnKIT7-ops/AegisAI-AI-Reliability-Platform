@@ -1,5 +1,5 @@
 import { MetricDeltas } from '../components/Metrics'
-import { Empty, ErrorState, Loading, Tag } from '../components/States'
+import { Empty, ErrorState, Loading } from '../components/States'
 import { isId } from '../route'
 import type { EvaluationRun, RunComparison } from '../types'
 import { useApi } from '../useApi'
@@ -17,7 +17,6 @@ function Heading({ run }: { run: EvaluationRun }) {
   return (
     <>
       <a href={`#/evaluations/${run.id}`}>{run.label}</a>{' '}
-      {run.source === 'demo' && <Tag>Demo</Tag>}
     </>
   )
 }

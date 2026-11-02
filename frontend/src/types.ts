@@ -85,29 +85,6 @@ export interface DocumentRecord {
   ingested_at: string
 }
 
-export interface DemoDocument {
-  filename: string
-  size_bytes: number
-  chunks: number
-}
-
-export interface RecordedAnswer {
-  example_id: string
-  category: string
-  question: string
-  answer: string | null
-  sources: string[]
-  latency_ms: number | null
-}
-
-export interface DemoStatus {
-  loaded: boolean
-  documents: DemoDocument[]
-  recorded_answers: RecordedAnswer[]
-  run_ids: Record<string, string>
-  incident_id: string | null
-}
-
 export interface Fact {
   statement: string
   source: string

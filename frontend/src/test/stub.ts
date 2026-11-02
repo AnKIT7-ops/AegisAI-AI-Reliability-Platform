@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { DemoStatus, Telemetry } from '../types'
+import type { Telemetry } from '../types'
 
 type Reply = unknown | ((init: RequestInit) => Response)
 
@@ -52,29 +52,4 @@ export const TELEMETRY: Telemetry = {
   model_failures: {},
   grafana_url: 'http://localhost:8080/grafana/',
   prometheus_url: 'http://localhost:8080/prometheus',
-}
-
-export const NO_DEMO: DemoStatus = {
-  loaded: false,
-  documents: [{ filename: 'k8s-probes.md', size_bytes: 2048, chunks: 12 }],
-  recorded_answers: [],
-  run_ids: {},
-  incident_id: null,
-}
-
-export const DEMO: DemoStatus = {
-  ...NO_DEMO,
-  loaded: true,
-  run_ids: { current: 'run-1' },
-  incident_id: 'incident-1',
-  recorded_answers: [
-    {
-      example_id: 'prom-storage-01',
-      category: 'answerable',
-      question: 'What is the default retention?',
-      answer: 'It is 15 days [2].',
-      sources: ['prometheus-storage.md', 'prometheus-overview.md'],
-      latency_ms: 1120,
-    },
-  ],
 }

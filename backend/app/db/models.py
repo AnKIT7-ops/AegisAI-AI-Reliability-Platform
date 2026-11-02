@@ -25,7 +25,7 @@ RUN_STATUSES = ("pending", "running", "done", "failed")
 CATEGORIES = ("answerable", "unanswerable", "injection")
 INCIDENT_STATUSES = ("open", "resolved")
 INCIDENT_SOURCES = ("live", "simulated")
-# Demo records never mix with live ones: see app/services/releases.py.
+# "demo" stays allowed for records in databases created by earlier versions.
 DATA_SOURCES = ("live", "demo")
 RELEASE_STATUSES = (
     "candidate",
@@ -160,7 +160,7 @@ class Release(Base):
         CheckConstraint(_in("source", DATA_SOURCES), name="source"),
         CheckConstraint(PROMOTION_RULE, name="promotion_rule"),
         UniqueConstraint("source", "version"),
-        # Per source, so demo history can never collide with a real active release.
+        # Per source, so old records can never collide with a live active release.
         Index(
             "uq_releases_one_active",
             "source",

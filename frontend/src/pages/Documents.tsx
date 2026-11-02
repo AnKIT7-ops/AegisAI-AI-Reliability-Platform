@@ -1,9 +1,9 @@
 import { useCallback, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api'
-import { DemoBanner, Empty, ErrorState, Loading, Tag } from '../components/States'
+import { Empty, ErrorState, Loading } from '../components/States'
 import { fileSize } from '../format'
-import type { DemoDocument, DemoStatus, DocumentRecord } from '../types'
+import type { DocumentRecord } from '../types'
 import { useAction, useApi } from '../useApi'
 
 interface Uploaded {
@@ -11,21 +11,11 @@ interface Uploaded {
   created: boolean
 }
 
-function Table({
-  caption,
-  rows,
-  captionHidden = false,
-}: {
-  caption: string
-  rows: DemoDocument[]
-  captionHidden?: boolean
-}) {
+function Table({ rows }: { rows: DocumentRecord[] }) {
   return (
     <div className="table-scroll">
       <table>
-        <caption className={captionHidden ? 'sr-only' : undefined}>
-          {caption}
-        </caption>
+        <caption>Your documents</caption>
         <thead>
           <tr>
             <th scope="col">File</th>
@@ -53,7 +43,6 @@ function Table({
 
 export default function Documents() {
   const documents = useApi<{ documents: DocumentRecord[] }>('/documents')
-  const demo = useApi<DemoStatus>('/demo')
   const input = useRef<HTMLInputElement>(null)
   const upload = useAction(
     useCallback((file: File) => {
@@ -73,12 +62,9 @@ export default function Documents() {
     }
   }
 
-  const demoDocuments = demo.data?.loaded ? demo.data.documents : []
-
   return (
     <>
       <h1>Documents</h1>
-      {demoDocuments.length > 0 && <DemoBanner />}
       <form className="upload" onSubmit={submit}>
         <label htmlFor="file">Add a Markdown or text file, up to 1 MB</label>
         <input id="file" ref={input} type="file" accept=".md,.txt" required />
@@ -104,25 +90,12 @@ export default function Documents() {
       )}
       {documents.data &&
         (documents.data.documents.length > 0 ? (
-          <Table caption="Your documents" rows={documents.data.documents} />
+          <Table rows={documents.data.documents} />
         ) : (
           <Empty title="No documents added yet">
             <p>Add a file above, and Chat can answer questions from it.</p>
           </Empty>
         ))}
-
-      {demoDocuments.length > 0 && (
-        <section aria-labelledby="demo-documents">
-          <h2 id="demo-documents">
-            Demo documents <Tag>Demo</Tag>
-          </h2>
-          <p className="meta">
-            The documents behind the recorded answers. They are listed here and
-            are not in your document index.
-          </p>
-          <Table caption="Demo documents" rows={demoDocuments} captionHidden />
-        </section>
-      )}
     </>
   )
 }

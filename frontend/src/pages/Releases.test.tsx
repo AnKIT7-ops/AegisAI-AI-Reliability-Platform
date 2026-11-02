@@ -7,7 +7,7 @@ import Releases from './Releases'
 
 const BASE: Release = {
   id: '00000000-0000-4000-8000-000000000001',
-  version: 'demo-1',
+  version: 'rel-1',
   source: 'demo',
   status: 'superseded',
   simulated: true,
@@ -21,11 +21,11 @@ const BASE: Release = {
   comparison: null,
   events: [],
 }
-const ACTIVE: Release = { ...BASE, id: '00000000-0000-4000-8000-000000000002', version: 'demo-2', status: 'active' }
+const ACTIVE: Release = { ...BASE, id: '00000000-0000-4000-8000-000000000002', version: 'rel-2', status: 'active' }
 const REJECTED: Release = {
   ...BASE,
   id: '00000000-0000-4000-8000-000000000003',
-  version: 'demo-3',
+  version: 'rel-3',
   status: 'rejected',
   gate_passed: false,
   gate_failures: ['recall_at_k: 0.9412 < 0.95'],
@@ -64,13 +64,12 @@ describe('Releases', () => {
   it('lists releases with their model, config, gate and status', async () => {
     stubApi({ [LIST]: { releases: [REJECTED] }, [RUNS]: { runs: [] } })
     render(<Releases />)
-    const row = (await screen.findByRole('link', { name: 'demo-3' })).closest('tr')
+    const row = (await screen.findByRole('link', { name: 'rel-3' })).closest('tr')
     const cells = within(row as HTMLElement)
     expect(cells.getByText('qwen3.5:4b / 2')).toBeTruthy()
     expect(cells.getByText('top_k 4, min_score 0.7')).toBeTruthy()
     expect(cells.getByText('FAIL')).toBeTruthy()
     expect(cells.getByText('Rejected')).toBeTruthy()
-    expect(cells.getByText('Demo')).toBeTruthy()
   })
 
   it('shows a gate that has not run', async () => {
@@ -149,7 +148,7 @@ describe('Releases', () => {
     render(<Releases />)
     const select = await screen.findByLabelText('Roll back to')
     const names = within(select).getAllByRole('option').map((o) => o.textContent)
-    expect(names).toEqual(['demo-1'])
+    expect(names).toEqual(['rel-1'])
   })
 
   it('rolls back to the named release after asking', async () => {
@@ -157,13 +156,13 @@ describe('Releases', () => {
     render(<Releases />)
     await userEvent.type(await screen.findByLabelText('Reason'), 'latency')
     await userEvent.click(
-      screen.getByRole('button', { name: 'Roll back to demo-1' }),
+      screen.getByRole('button', { name: 'Roll back to rel-1' }),
     )
     expect(calls.some((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000002/rollback')).toBe(false)
     await userEvent.click(
-      screen.getByRole('button', { name: 'Yes, roll back to demo-1' }),
+      screen.getByRole('button', { name: 'Yes, roll back to rel-1' }),
     )
-    await screen.findByRole('link', { name: 'demo-2' })
+    await screen.findByRole('link', { name: 'rel-2' })
     const call = calls.find((c) => c.key === 'POST /releases/00000000-0000-4000-8000-000000000002/rollback')
     expect(call?.init.body).toBe('{"target_release_id":"00000000-0000-4000-8000-000000000001","reason":"latency"}')
   })
@@ -306,7 +305,7 @@ describe('Releases', () => {
     window.location.hash = '#/releases?id=../demo'
     const calls = stubApi({ [LIST]: { releases: [ACTIVE] }, [RUNS]: { runs: [] } })
     render(<Releases />)
-    await screen.findByRole('link', { name: 'demo-2' })
+    await screen.findByRole('link', { name: 'rel-2' })
     expect(calls.some((c) => c.key.includes('..'))).toBe(false)
   })
 })

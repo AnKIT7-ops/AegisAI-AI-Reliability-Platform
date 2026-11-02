@@ -54,7 +54,7 @@ npx playwright install chromium    # or: $env:AEGIS_E2E_BROWSER = "<path to a Ch
 npm run e2e
 ```
 
-They cover the first-time journey, repeat demo loading, promotion, a refused promotion, rollback, a live evaluation through to a resolved incident, sign-in and session end, the nginx boundary, keyboard access to the content, and sideways scrolling at 360 px. Remove the project with `docker compose -p aegis-e2e --env-file frontend/e2e/e2e.env down -v`.
+They cover the first-time journey from upload to a sourced answer, a refused promotion, a live evaluation through to a resolved incident, sign-in and session end, the nginx boundary, keyboard access to the content, and sideways scrolling at 360 px. Remove the project with `docker compose -p aegis-e2e --env-file frontend/e2e/e2e.env down -v`.
 
 ## Reproduce the results
 
@@ -82,8 +82,8 @@ Setup and teardown were checked from a fresh clone on 2026-11-01. `docker compos
 .github/    CI workflow
 backend/    FastAPI app (app/: api, core, db, services/llm, services/rag, services/evaluation, services/incidents), alembic/ migrations, tests (unit/, integration/, evaluation/), uv project
 frontend/   React + TypeScript + Vite console (src/: pages, components), e2e/ browser tests, nginx.conf for the gateway
-data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios; demo/ exported demo data
+data/       sample_docs/ corpus with attribution; evaluation/ datasets and quality thresholds; incidents/ recorded scenarios
 monitoring/ Prometheus configuration and alert rules, Grafana provisioning and dashboard
 docs/       guides linked from the README; runbooks/ for each alert; benchmarks/ saved results; images/ screenshots
-scripts/    Ingest, demo export and benchmark helpers
+scripts/    Ingest and benchmark helpers
 ```

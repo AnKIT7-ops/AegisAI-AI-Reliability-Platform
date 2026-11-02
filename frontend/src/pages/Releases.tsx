@@ -3,11 +3,9 @@ import type { FormEvent } from 'react'
 import { api } from '../api'
 import { MetricDeltas } from '../components/Metrics'
 import {
-  DemoBanner,
   Empty,
   ErrorState,
   Loading,
-  Tag,
   Verdict,
 } from '../components/States'
 import { when, words } from '../format'
@@ -81,7 +79,6 @@ function CreateForm({ onCreated }: { onCreated: (id: string) => void }) {
             {done.map((run) => (
               <option key={run.id} value={run.id}>
                 {run.label} · {run.id.slice(0, 8)}
-                {run.source === 'demo' ? ' · demo' : ''}
               </option>
             ))}
           </select>
@@ -277,7 +274,7 @@ function ReleaseDetail({
   return (
     <section className="result" aria-labelledby="release-title">
       <h2 id="release-title">
-        {data.version} {data.source === 'demo' && <Tag>Demo</Tag>}
+        {data.version}
       </h2>
       <p className="meta">
         {words(data.status)} ·{' '}
@@ -365,7 +362,6 @@ export default function Releases() {
         <strong>Simulated release.</strong> Promoting or rolling back records the
         decision. It does not change live settings.
       </p>
-      {list.some((release) => release.source === 'demo') && <DemoBanner />}
       <Lifecycle />
 
       {releases.loading && releases.data === null && (
@@ -402,7 +398,6 @@ export default function Releases() {
                     >
                       {release.version}
                     </a>{' '}
-                    {release.source === 'demo' && <Tag>Demo</Tag>}
                   </td>
                   <td>
                     {release.chat_model} / {release.prompt_version}

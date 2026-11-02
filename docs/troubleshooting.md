@@ -14,7 +14,6 @@
 | `403` on a change | The browser origin is not allowed, or the CSRF token is missing | Add the origin to `AEGIS_ALLOWED_ORIGINS`, or sign in again |
 | `429 rate_limited` | Too many costly requests in a short time | Wait and retry. See [Security](security.md) |
 | `409 evaluation_running` | One run is already going | Wait for it to finish |
-| `409 demo_stale` | The dataset or limits changed under the fixtures | See [Demo data](releases.md#demo-data) |
 | The index refuses to load | The embedding model changed | See [Models](configuration.md) for rebuilding it |
 | Sign-in does not stick | The browser is on `127.0.0.1` | Use `localhost` in the browser |
 | Scripts take 2 s per request on Windows | They connect to `localhost` | Use `127.0.0.1` |
@@ -31,7 +30,6 @@ This is a single-machine system for evaluating and operating a local RAG applica
 - **Rate limits are per address.** Behind Docker Desktop all clients can share one address, so one client can use up the limit for everyone.
 - **Evaluation runs.** Two requests at the same moment can both start a run, because the check and the insert are separate steps. This takes simultaneous clicks in practice.
 - **Detection runs when called.** There is no background polling, notification or Alertmanager, and no tracing.
-- **Demo records stay.** They cannot be removed without deleting the database volume.
 - **Platforms tested.** The real model ran only on Windows 11 with Docker Desktop. Ubuntu is covered by CI with fake model providers.
 - **Accessibility.** Browser tests cover the skip link, focus after a route change and 360 px layouts. There has been no screen reader pass.
 - **The `e2e` CI job is not a required check yet.** One test failed once locally, its error was not kept, and the cause is unknown.

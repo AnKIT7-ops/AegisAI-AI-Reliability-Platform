@@ -5,7 +5,7 @@
 |---|---|
 | Network | Only nginx is published, on 127.0.0.1 by default. Exposing it needs [sign-in and a TLS terminator](#exposing-beyond-localhost); the backend refuses to start otherwise. |
 | Requests | Bodies over 2 MB are refused by nginx, uploads over 1 MB and questions over 2000 characters by the API. `Host` and `Origin` are checked. |
-| Rate limits | Chat, upload, starting an evaluation, incident detection, simulation and demo loading share a limit of 2 requests per second per client address with a burst of 40, then `429 rate_limited` with `Retry-After: 1`. Failed sign-ins have their own limit. Behind Docker Desktop all clients can appear as one address, so the limit can act as a global one. |
+| Rate limits | Chat, upload, starting an evaluation, incident detection, and simulation share a limit of 2 requests per second per client address with a burst of 40, then `429 rate_limited` with `Retry-After: 1`. Failed sign-ins have their own limit. Behind Docker Desktop all clients can appear as one address, so the limit can act as a global one. |
 | Sessions | With sign-in on: `HttpOnly`, `SameSite=Strict` cookie, a CSRF token on every change, and revocation on sign-out. Passwords are stored as scrypt hashes. |
 | Containers | The backend and nginx run as non-root users. All services run with `no-new-privileges`. All except PostgreSQL drop every Linux capability. The backend, nginx and Prometheus have a read-only root filesystem. Every service has a memory limit. |
 | Untrusted content | Model output and document text render as plain text. The browser allows only same-origin scripts, styles and requests. Retrieved text cannot run anything, because the model has no tools. Ids from the URL must be UUIDs before they reach an API path. |
