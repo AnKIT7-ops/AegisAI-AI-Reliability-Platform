@@ -5,24 +5,20 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 
-**Find out if your RAG application is getting worse before your users do.**
+A local RAG application with evaluation, quality gates and monitoring built in. It runs on your machine, with models served by Ollama.
 
-AegisAI answers questions from your own documents, scores those answers, blocks releases that fall below your limits and explains failures from evidence. It runs on your machine, with local models through Ollama.
+A new model, prompt or chunk size can lower answer quality while every request still returns 200. AegisAI runs a fixed question set against each change and compares the scores with limits you set.
 
-![AegisAI overview page with health, quality and incident readouts](docs/images/overview.png)
-
-## Why it matters
-
-A RAG application can break quietly. A new model, prompt or chunk size can lower answer quality while every request still returns 200. AegisAI turns that risk into numbers you can check on every change.
+![AegisAI overview page with the latest evaluation and live signals](docs/images/overview.png)
 
 ## What it does
 
-- **Answers with sources.** Every answer cites numbered passages. If nothing relevant is found, it refuses without calling the model.
-- **Scores quality.** A versioned question set measures retrieval, correctness, citations, refusals, prompt injection and latency.
-- **Blocks regressions.** Quality gates run in CI, and failing releases cannot be promoted.
-- **Shows what is happening.** Structured logs, Prometheus metrics, alerts and a Grafana dashboard.
-- **Diagnoses incidents.** Fixed rules keep observed facts apart from hypotheses, and each incident links a runbook.
-- **Stays local.** Only nginx is published, on 127.0.0.1 by default, with optional sign-in.
+- Answers questions from your `.md` and `.txt` files and cites the passages it used. If retrieval finds nothing above the score cut-off, it refuses without calling the model.
+- Scores each run on retrieval, correctness, citations, refusals, prompt injection and latency.
+- Fails CI when a score drops below its limit, and refuses to promote a release that missed the gate.
+- Writes structured logs and Prometheus metrics, with alerts and a Grafana dashboard.
+- Builds incident reports from fixed rules. Observed facts stay apart from hypotheses, and each report links a runbook.
+- Publishes only nginx, on 127.0.0.1 by default, with optional sign-in.
 
 ## Quick start
 
@@ -42,11 +38,11 @@ Open http://localhost:8080.
 
 ## Use it
 
-1. **Add documents.** Upload `.md` or `.txt` files on the Documents page, up to 1 MB each. Or load the 15 sample pages with `.\scripts\ingest_samples.ps1`.
-2. **Ask a question.** Chat returns an answer with its sources and scores.
-3. **Run an evaluation.** The Evaluations page scores the question set and shows the quality gate. `v1` is written for the sample documents, so [write your own dataset](docs/evaluation.md) for your documents.
-4. **Watch and diagnose.** Telemetry shows live health, and Incidents builds a report from firing alerts.
-5. **Record a release.** Releases runs a canary against the gate, then records promotion or rollback. It records the decision and changes no live setting.
+1. Upload `.md` or `.txt` files on the Documents page, up to 1 MB each. Or load the 15 sample pages with `.\scripts\ingest_samples.ps1`.
+2. Ask a question in Chat. The answer comes back with its sources and their scores.
+3. Run an evaluation from the Evaluations page to score the question set against the gate. `v1` is written for the sample documents, so [write your own dataset](docs/evaluation.md) for your documents.
+4. Watch live health on Telemetry. Incidents builds a report from firing alerts.
+5. Run a canary on Releases, then record the promotion or rollback. This records the decision and changes no live setting.
 
 | ![Chat answer with sources](docs/images/chat.png) | ![Evaluation run with quality gate](docs/images/evaluation.png) |
 |---|---|
@@ -82,10 +78,10 @@ The 69-question sample dataset with `qwen3.5:4b` and `nomic-embed-text` on an RT
 | Citation correctness | 1.00 |
 | Correct refusals | 1.00 (10/10) |
 | False refusals | 0.06 (3/51) |
-| Injection resistance | 0.62 (5/8) |
+| Injection resistance | 0.63 (5/8) |
 | Latency p50 / p95 | 0.92 s / 2.8 s |
 
-These figures describe one machine and a small dataset. They are not a capacity claim.
+These figures describe one machine and a small dataset. They are not a capacity claim. The screenshots come from a separate run on a larger document set, so their scores differ slightly, and the chat p95 on the Overview page is live traffic.
 
 ## Limitations
 

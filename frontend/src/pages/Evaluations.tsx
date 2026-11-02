@@ -21,7 +21,7 @@ function CompareForm({ runs }: { runs: EvaluationRun[] }) {
   if (done.length < 2) return null
   const options = done.map((run) => (
     <option key={run.id} value={run.id}>
-      {run.label} · {run.id.slice(0, 8)}
+      {run.label} ({run.id.slice(0, 8)})
     </option>
   ))
   return (

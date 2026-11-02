@@ -1,13 +1,14 @@
-import { Readout } from '../components/Metrics'
+import { MetricBar } from '../components/Metrics'
 import {
   ErrorState,
   Loading,
   Tag,
   Verdict,
 } from '../components/States'
-import { measured, percent, seconds } from '../format'
+import { measured, percent, seconds, when } from '../format'
 import type {
   DocumentRecord,
+  EvaluationDetail,
   EvaluationRun,
   Incident,
   Release,
@@ -38,46 +39,49 @@ function health(telemetry: Telemetry | null): string {
   return telemetry.firing_alerts.length > 0 ? 'Alerts firing' : 'No alerts'
 }
 
-function Readouts({
-  telemetry,
-  run,
-  open,
-  release,
-}: {
-  telemetry: Telemetry | null
-  run: EvaluationRun | undefined
-  open: Incident[] | null
-  release: Release | undefined
-}) {
-  const recall = run?.metrics?.recall_at_k
+function Signal({ label, value }: { label: string; value: string }) {
   return (
-    <dl className="readouts">
-      <Readout label="Health" value={health(telemetry)} />
-      <Readout
-        label="Recall@k"
-        value={typeof recall === 'number' ? recall.toFixed(2) : 'No evaluation'}
-      />
-      <Readout
-        label="Quality gate"
-        value={run?.gate ? <Verdict passed={run.gate.passed} /> : 'No result'}
-      />
-      <Readout
-        label="Error rate"
-        value={measured(telemetry, telemetry?.error_ratio, percent)}
-      />
-      <Readout
-        label="Chat p95"
-        value={measured(telemetry, telemetry?.chat_p95_s, seconds)}
-      />
-      <Readout
-        label="Active release"
-        value={release?.version ?? 'None'}
-      />
-      <Readout
-        label="Open incidents"
-        value={open === null ? 'Not checked' : String(open.length)}
-      />
-    </dl>
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  )
+}
+
+// The headline scores. The evaluation's own page has the full set.
+const HEADLINE = [
+  'recall_at_k',
+  'answer_correctness',
+  'citation_correctness',
+  'injection_resistance',
+]
+
+function LatestEvaluation({ run }: { run: EvaluationRun }) {
+  // Only the detail carries the limits, and the bars draw without them.
+  const detail = useApi<EvaluationDetail>(`/evaluations/${run.id}`)
+  const failures = run.gate?.failures ?? []
+  return (
+    <>
+      <p className="latest">
+        {run.gate ? <Verdict passed={run.gate.passed} /> : 'No gate result'}{' '}
+        <a href={`#/evaluations/${run.id}`}>{run.label}</a>{' '}
+        <span className="meta">{when(run.created_at)}</span>
+      </p>
+      <ul className="metrics">
+        {HEADLINE.map((name) => {
+          const value = run.metrics?.[name]
+          return typeof value === 'number' ? (
+            <MetricBar
+              key={name}
+              name={name}
+              value={value}
+              limit={detail.data?.limits[name]}
+              missed={failures.some((failure) => failure.startsWith(`${name}:`))}
+            />
+          ) : null
+        })}
+      </ul>
+    </>
   )
 }
 
@@ -112,7 +116,13 @@ function Content() {
   const run = runs.data?.runs[0]
 
   if (runs.error) return <ErrorState error={runs.error} onRetry={runs.reload} />
-  if (runs.data === null || documents.loading) {
+  if (
+    runs.data === null ||
+    documents.loading ||
+    telemetry.loading ||
+    incidents.loading ||
+    releases.loading
+  ) {
     return <Loading label="Loading the overview…" />
   }
 
@@ -123,16 +133,50 @@ function Content() {
 
   const active = releases.data?.releases ?? []
   const release = active.find((r) => r.source === 'live') ?? active[0]
+  const open = incidents.data?.incidents ?? null
   return (
-    <>
-      <Readouts
-        telemetry={telemetry.data}
-        run={run}
-        open={incidents.data?.incidents ?? null}
-        release={release}
-      />
-      <Incidents incidents={incidents.data?.incidents ?? []} />
-    </>
+    <div className="overview">
+      <div>
+        <section aria-labelledby="latest-title">
+          <h2 id="latest-title">Latest evaluation</h2>
+          {run ? (
+            <LatestEvaluation run={run} />
+          ) : (
+            <p>
+              No evaluation yet. <a href="#/evaluations">Run one</a> to score the
+              answers.
+            </p>
+          )}
+        </section>
+        <Incidents incidents={open ?? []} />
+      </div>
+      <div>
+        <section aria-labelledby="traffic-title">
+          <h2 id="traffic-title">Live traffic</h2>
+          <dl className="signals">
+            <Signal
+              label="Error rate"
+              value={measured(telemetry.data, telemetry.data?.error_ratio, percent)}
+            />
+            <Signal
+              label="Chat p95"
+              value={measured(telemetry.data, telemetry.data?.chat_p95_s, seconds)}
+            />
+          </dl>
+        </section>
+        <section aria-labelledby="operations-title">
+          <h2 id="operations-title">Operations</h2>
+          <dl className="signals">
+            <Signal label="Health" value={health(telemetry.data)} />
+            <Signal
+              label="Open incidents"
+              value={open === null ? 'Not checked' : String(open.length)}
+            />
+            <Signal label="Active release" value={release?.version ?? 'None'} />
+          </dl>
+        </section>
+      </div>
+    </div>
   )
 }
 

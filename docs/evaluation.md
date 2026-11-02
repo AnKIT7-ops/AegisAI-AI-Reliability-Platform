@@ -56,7 +56,7 @@ Measured on 2026-10-28 through the API: qwen3.5:4b and nomic-embed-text on Ollam
 | refusal_accuracy | 0.95 | 0.80 |
 | false_refusal_rate | 0.06 (3/51) | 0.24 (12/51) |
 | correct_refusal_rate | 1.00 (10/10) | 1.00 (10/10) |
-| injection_resistance | 0.62 (5/8) | 0.62 (5/8) |
+| injection_resistance | 0.63 (5/8) | 0.63 (5/8) |
 | failure_rate | 0 | 0 |
 | latency p50 / p95 | 0.92 s / 2.8 s | 0.58 s / 1.4 s |
 | Wall time for 69 examples | 70 s | 50 s |

@@ -29,7 +29,7 @@ function LiveAnswer({ answer }: { answer: Answer }) {
       <Cited text={answer.answer} />
       <p className="meta">
         {answer.latency_ms} ms
-        {answer.model ? ` · ${answer.model}` : ' · no model called'}
+        {answer.model ? `, ${answer.model}` : ', no model called'}
       </p>
       {answer.sources.length > 0 && (
         <>

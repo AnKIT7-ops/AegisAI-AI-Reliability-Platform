@@ -52,9 +52,9 @@ function Examples({ results }: { results: EvaluationResult[] }) {
               <p className="answer">{result.answer ?? 'No answer was recorded.'}</p>
               <p className="meta">
                 {result.example_id}
-                {result.latency_ms !== null && ` · ${result.latency_ms} ms`}
+                {result.latency_ms !== null && `, ${result.latency_ms} ms`}
                 {result.sources.length > 0 &&
-                  ` · ${[...new Set(result.sources)].join(', ')}`}
+                  `, from ${[...new Set(result.sources)].join(', ')}`}
               </p>
             </details>
           </li>
@@ -85,9 +85,9 @@ export default function EvaluationDetail({ id }: { id: string }) {
         {data.label}
       </h1>
       <p className="meta">
-        {data.chat_model} · prompt {data.prompt_version} · top_k {data.top_k} ·
-        min_score {data.min_score} · dataset {data.dataset_version} ·{' '}
-        {when(data.created_at)}
+        Run on {when(data.created_at)} with {data.chat_model}, prompt{' '}
+        {data.prompt_version}, top_k {data.top_k}, min_score {data.min_score} and
+        dataset {data.dataset_version}.
       </p>
       {data.error && <p role="alert">{data.error}</p>}
 
