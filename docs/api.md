@@ -39,11 +39,9 @@ with four sources from `prometheus-storage.md` (scores 0.73–0.76). A question 
 | `POST /api/v1/releases/{id}/canary` | Apply the quality gate and compare with a baseline (`{"baseline_release_id": "..."}`, optional) |
 | `POST /api/v1/releases/{id}/promote` | Record the release as active (`{"reason": "..."}`, optional) |
 | `POST /api/v1/releases/{id}/rollback` | `{"target_release_id": "...", "reason": "..."}` → reactivate a superseded release |
-| `GET /api/v1/releases` | Releases, newest first (`?source=live` or `demo`, `?status=`, `?limit=` up to 200) |
+| `GET /api/v1/releases` | Releases, newest first (`?status=`, `?limit=` up to 200) |
 | `GET /api/v1/releases/{id}` | One release with its comparison and audit history |
 | `GET /api/v1/telemetry` | Current request rate, error ratio, latency, model failures, firing alerts and database state; see [Telemetry summary](observability.md#telemetry-summary) |
-| `GET /api/v1/demo` | Whether the demo is loaded, its documents and recorded answers |
-| `POST /api/v1/demo/load` | Insert the demo data; safe to repeat. See [Demo data](releases.md#demo-data) |
 
 API errors (validation, rejected uploads, unknown routes, model problems) look like `{"error": {"code": "...", "message": "..."}}`. `503 model_unavailable` means Ollama is down, slow or missing a model.
 

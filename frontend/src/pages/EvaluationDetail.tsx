@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { MetricBar } from '../components/Metrics'
 import {
-  DemoBanner,
   ErrorState,
   Loading,
-  Tag,
   Verdict,
 } from '../components/States'
 import { isQualityMetric, when, words } from '../format'
@@ -84,9 +82,8 @@ export default function EvaluationDetail({ id }: { id: string }) {
         <a href="#/evaluations">Evaluations</a>
       </p>
       <h1>
-        {data.label} {data.source === 'demo' && <Tag>Demo</Tag>}
+        {data.label}
       </h1>
-      {data.source === 'demo' && <DemoBanner />}
       <p className="meta">
         {data.chat_model} · prompt {data.prompt_version} · top_k {data.top_k} ·
         min_score {data.min_score} · dataset {data.dataset_version} ·{' '}

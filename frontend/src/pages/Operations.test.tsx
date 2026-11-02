@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { apiError, DEMO, NO_DEMO, stubApi, TELEMETRY } from '../test/stub'
+import { apiError, stubApi, TELEMETRY } from '../test/stub'
 import type { Incident } from '../types'
 import IncidentDetail from './IncidentDetail'
 import Incidents from './Incidents'
@@ -113,24 +113,22 @@ describe('Incidents', () => {
   const LIST = 'GET /incidents?limit=50'
 
   it('invites a first check', async () => {
-    stubApi({ [LIST]: { incidents: [] }, 'GET /demo': NO_DEMO })
+    stubApi({ [LIST]: { incidents: [] } })
     render(<Incidents />)
     expect(await screen.findByText('No incidents recorded')).toBeTruthy()
   })
 
   it('lists incidents and marks simulated ones', async () => {
-    stubApi({ [LIST]: { incidents: [INCIDENT] }, 'GET /demo': DEMO })
+    stubApi({ [LIST]: { incidents: [INCIDENT] } })
     render(<Incidents />)
     const link = await screen.findByRole('link', { name: 'Model timeout' })
     expect(link.getAttribute('href')).toBe('#/incidents/i1')
     expect(screen.getByText('Simulated')).toBeTruthy()
-    expect(await screen.findByText('Demo data.')).toBeTruthy()
   })
 
   it('reports a detection pass, including what it could not read', async () => {
     stubApi({
       [LIST]: { incidents: [] },
-      'GET /demo': NO_DEMO,
       'POST /incidents/detect': {
         incidents: [],
         not_checked: ['alerts', 'metrics'],
@@ -147,7 +145,6 @@ describe('Incidents', () => {
   it('simulates the chosen scenario', async () => {
     const calls = stubApi({
       [LIST]: { incidents: [] },
-      'GET /demo': NO_DEMO,
       'POST /incidents/simulate': { incidents: [] },
     })
     render(<Incidents />)
@@ -165,7 +162,6 @@ describe('Incidents', () => {
   it('explains a failed check', async () => {
     stubApi({
       [LIST]: { incidents: [] },
-      'GET /demo': NO_DEMO,
       'POST /incidents/detect': () => apiError(500, 'internal_error', 'broken'),
     })
     render(<Incidents />)

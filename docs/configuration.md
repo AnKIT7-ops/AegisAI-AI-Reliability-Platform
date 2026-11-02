@@ -29,7 +29,6 @@ Settings are environment variables with the `AEGIS_` prefix (see `backend/app/co
 | `AEGIS_PROMETHEUS_URL` | `http://127.0.0.1:9090` (compose: `http://prometheus:9090`) | Where incident detection reads alerts and metrics |
 | `AEGIS_PROMETHEUS_PUBLIC_URL` | `http://127.0.0.1:9090` (compose: `http://localhost:8080/prometheus`) | Base of the links in incident reports; must open in a browser |
 | `AEGIS_GRAFANA_PUBLIC_URL` | `http://127.0.0.1:3000` (compose: `http://localhost:8080/grafana/`) | Grafana link in the telemetry summary |
-| `AEGIS_DEMO_DIR` | `data/demo` | Demo fixtures |
 | `AEGIS_AUTH_PASSWORD_HASH` | empty | Turns on [sign-in](security.md#sign-in). A malformed value stops the backend at startup |
 | `AEGIS_AUTH_COOKIE_SECURE` | `false` | Marks the session cookie `Secure`; needs HTTPS in front |
 | `AEGIS_AUTH_SESSION_HOURS` | `8` | Absolute session lifetime |

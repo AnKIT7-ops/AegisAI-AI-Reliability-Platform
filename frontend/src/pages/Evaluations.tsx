@@ -2,11 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api'
 import {
-  DemoBanner,
   Empty,
   ErrorState,
   Loading,
-  Tag,
   Verdict,
 } from '../components/States'
 import { metricValue, when, words } from '../format'
@@ -24,7 +22,6 @@ function CompareForm({ runs }: { runs: EvaluationRun[] }) {
   const options = done.map((run) => (
     <option key={run.id} value={run.id}>
       {run.label} · {run.id.slice(0, 8)}
-      {run.source === 'demo' ? ' · demo' : ''}
     </option>
   ))
   return (
@@ -82,7 +79,6 @@ export default function Evaluations() {
   return (
     <>
       <h1>Evaluations</h1>
-      {list.some((run) => run.source === 'demo') && <DemoBanner />}
       <form className="row-form" onSubmit={submit}>
         <div>
           <label htmlFor="run-label">Run label</label>
@@ -107,7 +103,7 @@ export default function Evaluations() {
       {runs.error && <ErrorState error={runs.error} onRetry={reload} />}
       {runs.data && list.length === 0 && (
         <Empty title="No evaluations yet">
-          <p>Start one above, or load the demo from Overview.</p>
+          <p>Start one above.</p>
         </Empty>
       )}
       {list.length > 0 && (
@@ -132,7 +128,6 @@ export default function Evaluations() {
                   <tr key={run.id}>
                     <td>
                       <a href={`#/evaluations/${run.id}`}>{run.label}</a>{' '}
-                      {run.source === 'demo' && <Tag>Demo</Tag>}
                     </td>
                     <td>{words(run.status)}</td>
                     <td>

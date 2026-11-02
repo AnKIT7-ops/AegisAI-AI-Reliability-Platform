@@ -1,10 +1,5 @@
-import { useCallback, useState } from 'react'
-import { api } from '../api'
-import { GuidedPath } from '../components/GuidedPath'
-import type { Step } from '../components/GuidedPath'
 import { Readout } from '../components/Metrics'
 import {
-  DemoBanner,
   ErrorState,
   Loading,
   Tag,
@@ -12,67 +7,25 @@ import {
 } from '../components/States'
 import { measured, percent, seconds } from '../format'
 import type {
-  DemoStatus,
   DocumentRecord,
   EvaluationRun,
   Incident,
   Release,
   Telemetry,
 } from '../types'
-import { useAction, useApi } from '../useApi'
+import { useApi } from '../useApi'
 
-function guideSteps(demo: DemoStatus): Step[] {
-  return [
-    { name: 'Ask', detail: 'Read a cited answer', href: '#/chat' },
-    {
-      name: 'Evaluate',
-      detail: 'See how it scored',
-      href: `#/evaluations/${demo.run_ids.current}`,
-    },
-    { name: 'Inspect', detail: 'Check live telemetry', href: '#/telemetry' },
-    {
-      name: 'Diagnose',
-      detail: 'Open a simulated failure',
-      href: `#/incidents/${demo.incident_id}`,
-    },
-  ]
-}
-
-function Start({ onLoaded }: { onLoaded: () => void }) {
-  const load = useAction(
-    useCallback(() => api('/demo/load', { method: 'POST' }), []),
-  )
-  const explore = async () => {
-    if ((await load.run()) !== null) onLoaded()
-  }
-
+function Start() {
   return (
     <section className="start" aria-labelledby="start-title">
       <h2 id="start-title">Nothing is being measured yet</h2>
       <p>
-        AegisAI evaluates an AI application, watches it run and diagnoses its
-        failures. Start with sample data, or bring your own documents.
+        Add your documents, ask a question, then run an evaluation to see how
+        the answers score. Adding documents needs Ollama running.
       </p>
-      <div className="start-options">
-        <div>
-          <h3>Explore the demo</h3>
-          <p>
-            Real evaluation runs, a release history and a simulated incident.
-            Works with no model installed.
-          </p>
-          <button type="button" onClick={explore} disabled={load.loading}>
-            {load.loading ? 'Loading demo data…' : 'Load demo data'}
-          </button>
-        </div>
-        <div>
-          <h3>Use your own documents</h3>
-          <p>Upload Markdown or text files. This needs Ollama running.</p>
-          <a className="button-secondary" href="#/documents">
-            Go to Documents
-          </a>
-        </div>
-      </div>
-      {load.error && <ErrorState error={load.error} />}
+      <a className="button-primary" href="#/documents">
+        Add documents
+      </a>
     </section>
   )
 }
@@ -97,19 +50,16 @@ function Readouts({
   release: Release | undefined
 }) {
   const recall = run?.metrics?.recall_at_k
-  const demoTag = run?.source === 'demo' ? <Tag>Demo</Tag> : undefined
   return (
     <dl className="readouts">
       <Readout label="Health" value={health(telemetry)} />
       <Readout
         label="Recall@k"
         value={typeof recall === 'number' ? recall.toFixed(2) : 'No evaluation'}
-        note={demoTag}
       />
       <Readout
         label="Quality gate"
         value={run?.gate ? <Verdict passed={run.gate.passed} /> : 'No result'}
-        note={demoTag}
       />
       <Readout
         label="Error rate"
@@ -122,7 +72,6 @@ function Readouts({
       <Readout
         label="Active release"
         value={release?.version ?? 'None'}
-        note={release?.source === 'demo' ? <Tag>Demo</Tag> : undefined}
       />
       <Readout
         label="Open incidents"
@@ -152,8 +101,7 @@ function Incidents({ incidents }: { incidents: Incident[] }) {
   )
 }
 
-function Content({ onChanged }: { onChanged: () => void }) {
-  const demo = useApi<DemoStatus>('/demo')
+function Content() {
   const runs = useApi<{ runs: EvaluationRun[] }>('/evaluations?limit=1')
   const documents = useApi<{ documents: DocumentRecord[] }>('/documents')
   const telemetry = useApi<Telemetry>('/telemetry')
@@ -163,24 +111,20 @@ function Content({ onChanged }: { onChanged: () => void }) {
   const releases = useApi<{ releases: Release[] }>('/releases?status=active')
   const run = runs.data?.runs[0]
 
-  const blocking = demo.error ?? runs.error
-  if (blocking) return <ErrorState error={blocking} onRetry={onChanged} />
-  if (demo.data === null || runs.data === null || documents.loading) {
+  if (runs.error) return <ErrorState error={runs.error} onRetry={runs.reload} />
+  if (runs.data === null || documents.loading) {
     return <Loading label="Loading the overview…" />
   }
 
   const nothingYet =
-    !demo.data.loaded &&
     runs.data.runs.length === 0 &&
     (documents.data?.documents.length ?? 0) === 0
-  if (nothingYet) return <Start onLoaded={onChanged} />
+  if (nothingYet) return <Start />
 
   const active = releases.data?.releases ?? []
   const release = active.find((r) => r.source === 'live') ?? active[0]
   return (
     <>
-      {demo.data.loaded && <DemoBanner />}
-      {demo.data.loaded && <GuidedPath steps={guideSteps(demo.data)} />}
       <Readouts
         telemetry={telemetry.data}
         run={run}
@@ -193,12 +137,10 @@ function Content({ onChanged }: { onChanged: () => void }) {
 }
 
 export default function Overview() {
-  // A new key reads everything again after demo data is loaded.
-  const [version, setVersion] = useState(0)
   return (
     <>
       <h1>Overview</h1>
-      <Content key={version} onChanged={() => setVersion((v) => v + 1)} />
+      <Content />
     </>
   )
 }

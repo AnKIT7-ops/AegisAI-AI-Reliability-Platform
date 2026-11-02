@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import App from './App'
-import { apiError, NO_DEMO, stubApi, TELEMETRY } from './test/stub'
+import { apiError, stubApi, TELEMETRY } from './test/stub'
 
 const OFF = {
   enabled: false,
@@ -18,7 +18,6 @@ const SIGNED_IN = {
   csrf_token: 'token-1',
 }
 const OVERVIEW = {
-  'GET /demo': NO_DEMO,
   'GET /evaluations?limit=1': { runs: [] },
   'GET /documents': { documents: [] },
   'GET /telemetry': TELEMETRY,
@@ -134,7 +133,6 @@ describe('App', () => {
     stubApi({
       'GET /auth/session': OFF,
       ...OVERVIEW,
-      'GET /demo': NO_DEMO,
     })
     render(<App />)
     await screen.findByRole('heading', { name: 'Overview' })

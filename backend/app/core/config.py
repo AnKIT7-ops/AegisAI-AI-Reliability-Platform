@@ -63,7 +63,6 @@ class Settings(BaseSettings):
     prometheus_public_url: str = "http://127.0.0.1:9090"
     grafana_public_url: str = "http://127.0.0.1:3000"
     incident_dir: Path = Path(__file__).resolve().parents[3] / "data" / "incidents"
-    demo_dir: Path = Path(__file__).resolve().parents[3] / "data" / "demo"
 
     # Request guards. Host stops DNS rebinding; Origin stops other sites' pages
     # from sending state-changing requests. Lists are JSON in the environment.

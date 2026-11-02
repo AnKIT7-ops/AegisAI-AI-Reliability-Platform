@@ -1,14 +1,13 @@
 import { useCallback, useState } from 'react'
 import { api } from '../api'
 import {
-  DemoBanner,
   Empty,
   ErrorState,
   Loading,
   Tag,
 } from '../components/States'
 import { when, words } from '../format'
-import type { DemoStatus, Incident } from '../types'
+import type { Incident } from '../types'
 import { useAction, useApi } from '../useApi'
 
 // Files in data/incidents. The API has no listing, and these rarely change.
@@ -29,7 +28,6 @@ interface Detected {
 
 export default function Incidents() {
   const incidents = useApi<{ incidents: Incident[] }>('/incidents?limit=50')
-  const demo = useApi<DemoStatus>('/demo')
   const [scenario, setScenario] = useState(SCENARIOS[0] as string)
   const { reload } = incidents
 
@@ -49,7 +47,6 @@ export default function Incidents() {
   return (
     <>
       <h1>Incidents</h1>
-      {demo.data?.loaded && <DemoBanner />}
       <div className="row-form">
         <button
           type="button"

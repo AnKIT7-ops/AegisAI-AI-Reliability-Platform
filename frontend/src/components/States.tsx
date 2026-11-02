@@ -61,13 +61,3 @@ export function Verdict({ passed }: { passed: boolean }) {
 export function Tag({ children }: { children: ReactNode }) {
   return <span className="tag">{children}</span>
 }
-
-/** Stays on every page that shows demo data. */
-export function DemoBanner() {
-  return (
-    <p className="demo-banner">
-      <strong>Demo data.</strong> Sample documents, recorded answers and a
-      simulated incident.
-    </p>
-  )
-}
