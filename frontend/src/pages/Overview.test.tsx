@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { apiError, stubApi, TELEMETRY } from '../test/stub'
 import Overview from './Overview'
@@ -29,6 +29,7 @@ const RUN = {
 const LOADED = {
   ...EMPTY,
   'GET /evaluations?limit=1': { runs: [RUN] },
+  'GET /evaluations/run-1': { limits: { recall_at_k: 0.95 } },
   'GET /incidents?status=open&limit=5': {
     incidents: [
       {
@@ -70,11 +71,29 @@ describe('Overview', () => {
     stubApi(LOADED)
     render(<Overview />)
     await screen.findByText('PASS')
-    expect(readout('Recall@k')).toContain('0.98')
-    expect(readout('Quality gate')).toContain('PASS')
+    const bar = screen.getByText('Recall@k').closest('li')
+    expect(bar?.textContent).toContain('0.98')
+    await waitFor(() => expect(bar?.textContent).toContain('limit 0.95'))
+    const link = screen.getByRole('link', { name: 'baseline' })
+    expect(link.getAttribute('href')).toBe('#/evaluations/run-1')
   })
 
+  it('still shows the scores when the limits cannot be read', async () => {
+    stubApi({
+      ...LOADED,
+      'GET /evaluations/run-1': () => apiError(503, 'database_unavailable', 'down'),
+    })
+    render(<Overview />)
+    const name = await screen.findByText('Recall@k')
+    expect(name.closest('li')?.textContent).toContain('0.98')
+  })
 
+  it('points at evaluations before the first run', async () => {
+    stubApi(HAS_DOCS)
+    render(<Overview />)
+    const link = await screen.findByRole('link', { name: 'Run one' })
+    expect(link.getAttribute('href')).toBe('#/evaluations')
+  })
 
   it('says no traffic rather than zero', async () => {
     stubApi({
@@ -165,5 +184,22 @@ describe('Overview', () => {
     const link = await screen.findByRole('link', { name: 'model timeout' })
     expect(link.getAttribute('href')).toBe('#/incidents/incident-1')
     expect(screen.getByText('Simulated')).toBeTruthy()
+  })
+
+  it('marks a headline score that missed the gate', async () => {
+    stubApi({
+      ...LOADED,
+      'GET /evaluations?limit=1': {
+        runs: [
+          {
+            ...RUN,
+            gate: { passed: false, failures: ['recall_at_k: 0.9804 < 0.99'] },
+          },
+        ],
+      },
+    })
+    render(<Overview />)
+    const name = await screen.findByText('Recall@k')
+    expect(name.closest('li')?.textContent).toContain('Missed')
   })
 })

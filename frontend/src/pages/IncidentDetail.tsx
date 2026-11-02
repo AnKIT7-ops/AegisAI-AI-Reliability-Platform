@@ -57,7 +57,7 @@ export default function IncidentDetail({ id }: { id: string }) {
         {data.source === 'simulated' && <Tag>Simulated</Tag>}
       </h1>
       <p className="meta">
-        {words(data.severity)} · {words(data.status)} · last seen{' '}
+        {words(data.severity)}, {data.status.replaceAll('_', ' ')}, last seen{' '}
         {when(data.last_seen)}
       </p>
       <p className="notice">

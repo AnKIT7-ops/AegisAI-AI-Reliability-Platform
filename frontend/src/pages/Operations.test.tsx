@@ -244,7 +244,7 @@ describe('IncidentDetail', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: 'Resolve incident' }),
     )
-    expect(await screen.findByText(/Resolved · last seen/)).toBeTruthy()
+    expect(await screen.findByText(/, resolved, last seen/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Resolve incident' })).toBeNull()
   })
 

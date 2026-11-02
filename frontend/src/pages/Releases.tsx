@@ -78,7 +78,7 @@ function CreateForm({ onCreated }: { onCreated: (id: string) => void }) {
           >
             {done.map((run) => (
               <option key={run.id} value={run.id}>
-                {run.label} · {run.id.slice(0, 8)}
+                {run.label} ({run.id.slice(0, 8)})
               </option>
             ))}
           </select>
@@ -337,8 +337,8 @@ function ReleaseDetail({
             {event.to_status && ` to ${words(event.to_status)}`}
             <span className="meta">
               {' '}
-              {when(event.created_at)} · {event.actor}
-              {event.request_id && ` · request ${event.request_id}`}
+              {when(event.created_at)} by {event.actor}
+              {event.request_id && `, request ${event.request_id}`}
             </span>
             {event.reason && <p className="meta">{event.reason}</p>}
           </li>
